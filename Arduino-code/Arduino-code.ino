@@ -34,15 +34,17 @@ DFRobot_OxygenSensor Oxygen; // Decalre the class for the Oxygen sensor
 // the setup function runs once when you press reset or power the board //
 //////////////////////////////////////////////////////////////////////////
 void setup() {
-Serial.begin(9600); // initalize serial comunication with computer
+    Serial.begin(9600); // initalize serial comunication with computer
+    delay(3000);
+    Serial.println(F("Serial communication started"));
 
-// Initialize M5Stack and setup power
-M5.begin(); 
-M5.Power.begin();
-
-
-
-Oxygen.begin(Oxygen_IICAddress);
+    // Initialize M5Stack and setup power
+    M5.begin(); 
+    M5.Power.begin();
+    Serial.println(F("M5Stack started"));
+    
+    Oxygen.begin(Oxygen_IICAddress);
+    Serial.println(F("Oxygen sensor started"));
 
 }
  

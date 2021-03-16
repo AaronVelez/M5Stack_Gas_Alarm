@@ -1,7 +1,7 @@
 /*
  Name:		Arduino_code.ino
  Created:	2/18/2021 12:12:37 PM
- Author:	aivel
+ Authors:	Daniela Cornejo y Aarón Vélez
 */
 //This is for the Teperature Sensor (which is analogic)
 #include <M5Stack.h>

@@ -39,7 +39,7 @@ void setup() {
     //M5.Power.begin();
 
     Serial.begin(115200); // initalize serial comunication with computer
-    delay(3000);
+    //delay(3000);
     Serial.println(F("Serial communication started"));
 
     Oxygen.begin(Oxygen_IICAddress);

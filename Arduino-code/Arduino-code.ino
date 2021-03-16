@@ -6,7 +6,8 @@
 
 ////// General libraries
 #include <M5Stack.h>
-
+#include <Wire.h>
+#include <WiFi.h> // VisualMicro compiler needs this to find the libraries M5Stack needs
 
 
 
@@ -20,6 +21,7 @@
        ADDRESS_2               0x72
        ADDRESS_3               0x73
 */
+DFRobot_OxygenSensor Oxygen; // Decalre the class for the Oxygen sensor 
 
 
 
@@ -32,9 +34,15 @@
 // the setup function runs once when you press reset or power the board //
 //////////////////////////////////////////////////////////////////////////
 void setup() {
-Serial.begin(9600);
+Serial.begin(9600); // initalize serial comunication with computer
 
-Oxygen.begin(Oxygen_IICAddress)
+// Initialize M5Stack and setup power
+M5.begin(); 
+M5.Power.begin();
+
+
+
+Oxygen.begin(Oxygen_IICAddress);
 
 }
  

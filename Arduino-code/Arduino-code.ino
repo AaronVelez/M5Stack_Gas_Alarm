@@ -36,14 +36,15 @@ DFRobot_OxygenSensor Oxygen; // Decalre the class for the Oxygen sensor
 void setup() {
     // Initialize M5Stack and setup power
     M5.begin();
-    //M5.Power.begin();
+    M5.Power.begin();
+    M5.Lcd.print("M5 started");
 
-    Serial.begin(115200); // initalize serial comunication with computer
-    //delay(3000);
-    Serial.println(F("Serial communication started"));
+    //Serial.begin(115200); // initalize serial comunication with computer
+    //Serial.println(F("Serial communication started"));
 
     Oxygen.begin(Oxygen_IICAddress);
-    Serial.println(F("Oxygen sensor started"));
+    //Serial.println(F("Oxygen sensor started"));
+    M5.Lcd.print("Oxygen started");
 
 }
  
@@ -53,11 +54,14 @@ void setup() {
 // The loop function runs over and over again until power down or reset //
 //////////////////////////////////////////////////////////////////////////
 void loop() {
-  float oxygenData = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
-  Serial.print(" Oxygen concentration is ");
-  Serial.print(oxygenData);
-  Serial.println(" %vol");
-  delay(1000);
+    M5.Lcd.print("LÑoop start");
+    float oxygenData = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
+    //Serial.print(" Oxygen concentration is ");
+    //Serial.print(oxygenData);
+    //Serial.println(" %vol");
+    delay(500);
+    M5.Lcd.print((String) "Oxygene: " + oxygenData + " %vol");
+    delay(500);
 
 
   /*

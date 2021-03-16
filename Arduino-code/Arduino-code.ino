@@ -4,13 +4,14 @@
  Authors:	Daniela Cornejo y Aarón Vélez
 */
 
-////// Library for M5Stack
+////// General libraries
 #include <M5Stack.h>
 
 
 
+
 ////// Library for Oxygen Sensor
-#include "DFRobot_OxygenSensor.h
+#include <DFRobot_OxygenSensor.h>
 #define COLLECT_NUMBER    10             // collect number, the collection range is 1-100.
 #define Oxygen_IICAddress ADDRESS_3
 /*   iic slave Address, The default is ADDRESS_3.
@@ -22,31 +23,12 @@
 
 
 
-/////// Library for CO2 Sensor
-#include "DFRobot_BME280.h"
-#include "Wire.h"
-#define SEA_LEVEL_PRESSURE    1015.0f
-int sensorIn = A0;
+////// Library for SHT31 Temperature and Humidity Sensor
+#include <DFRobot_SHT3x.h>
 
-
-
-////// Library for Environmental Sensor Temperature, Humidity, Barometer
-typedef DFRobot_BME280_IIC    BME; 
-BME   bme(&Wire, 0x77);   // select TwoWire peripheral and set sensor address
-
-#define SEA_LEVEL_PRESSURE    1015.0f
 
 // show last sensor operate status
-void printLastOperateStatus(BME::eStatus_t eStatus)
-{
-  switch(eStatus) {
-  case BME::eStatusOK:    Serial.println("everything ok"); break;
-  case BME::eStatusErr:   Serial.println("unknow error"); break;
-  case BME::eStatusErrDeviceNotDetected:    Serial.println("device not detected"); break;
-  case BME::eStatusErrParameter:    Serial.println("parameter error"); break;
-  default: Serial.println("unknow status"); break;
-  }
-}
+
 
 
 

@@ -3,10 +3,13 @@
  Created:	2/18/2021 12:12:37 PM
  Authors:	Daniela Cornejo y Aarón Vélez
 */
-//This is for the Teperature Sensor (which is analogic)
+
+////// Library for M5Stack
 #include <M5Stack.h>
 
-//this is for the Oxygen Sensor
+
+
+////// Library for Oxygen Sensor
 #include "DFRobot_OxygenSensor.h
 #define COLLECT_NUMBER    10             // collect number, the collection range is 1-100.
 #define Oxygen_IICAddress ADDRESS_3
@@ -17,15 +20,17 @@
        ADDRESS_3               0x73
 */
 
-//This is for the CO2 Sensor
+
+
+/////// Library for CO2 Sensor
 #include "DFRobot_BME280.h"
 #include "Wire.h"
 #define SEA_LEVEL_PRESSURE    1015.0f
-
-
 int sensorIn = A0;
 
-//This code is for Environmental Sensor Temperature, Humidity, Barometer
+
+
+////// Library for Environmental Sensor Temperature, Humidity, Barometer
 typedef DFRobot_BME280_IIC    BME; 
 BME   bme(&Wire, 0x77);   // select TwoWire peripheral and set sensor address
 
@@ -43,8 +48,11 @@ void printLastOperateStatus(BME::eStatus_t eStatus)
   }
 }
 
-// the setup function runs once when you press reset or power the board
 
+
+//////////////////////////////////////////////////////////////////////////
+// the setup function runs once when you press reset or power the board //
+//////////////////////////////////////////////////////////////////////////
 void setup() {
 Serial.begin(9600); //DFRobot_OxygenSensor Oxygen code
   while(!Oxygen.begin(Oxygen_IICAddress)) {
@@ -72,7 +80,11 @@ Serial.begin(9600); //DFRobot_OxygenSensor Oxygen code
   delay(100);
 }
 
-// the loop function runs over and over again until power down or reset
+
+
+//////////////////////////////////////////////////////////////////////////
+// The loop function runs over and over again until power down or reset //
+//////////////////////////////////////////////////////////////////////////
 void loop() {
   float oxygenData = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
   Serial.print(" Oxygen concentration is ");

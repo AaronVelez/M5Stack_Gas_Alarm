@@ -35,6 +35,7 @@ DFRobot_OxygenSensor Oxygen; // Decalre the class for the Oxygen sensor
 //////////////////////////////////////////////////////////////////////////
 void setup() {
 Serial.begin(9600); // initalize serial comunication with computer
+Wire.begin();
 
 // Initialize M5Stack and setup power
 M5.begin(); 

@@ -72,7 +72,7 @@ void loop() {
     //Serial.print(oxygenData);
     //Serial.println(" %vol");
     delay(500);
-    M5.Lcd.print((String) "Oxygene: " + oxygenData + " %vol/ ");
+    M5.Lcd.print((String) "Oxygene: " + oxygenData + " %vol");
     delay(500);
  
  //loop for SHT31 Temperature and Humidity Sensor

@@ -104,7 +104,7 @@ void setup() {
     WiFi.begin(ssid, password);
     WiFi.setAutoReconnect(true);
     M5.Lcd.print("Connecting to internet");
-    while (WiFi.isConnected() != true) {
+    while ( WiFi.status() != WL_CONNECTED ) {
         delay(500);
         M5.Lcd.print(".");
     }

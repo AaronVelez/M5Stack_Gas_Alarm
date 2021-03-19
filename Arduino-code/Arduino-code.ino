@@ -90,10 +90,6 @@ void loop() {
  //Read voltage for the CO2 sensor
   int sensorValue = analogRead(sensorIn);
 
-
-  //Read voltage
-  int sensorValue = analogRead(sensorIn);
-
   // The analog signal is converted to a voltage
   float voltage = sensorValue*(5000/1024.0);
   if(voltage == 0)

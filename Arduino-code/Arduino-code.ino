@@ -9,7 +9,7 @@
 #include <Wire.h>
 #include <WiFi.h> // VisualMicro compiler needs this to find the libraries M5Stack needs
 
-
+int sensorIn = G26; //CO2 Sensor input 
 
 ////// Library for Oxygen Sensor
 #include <DFRobot_OxygenSensor.h>
@@ -58,6 +58,9 @@ void setup() {
    if(!sht3x.softReset()){
      M5.Lcd.print("Failed to Initialize the chip....");
    }
+ {
+  // Set the default voltage of the reference voltage for the CO2 Sensor
+  analogRead(DEFAULT);
 }
  
 
@@ -83,35 +86,37 @@ void loop() {
   delay(500);
 
 
-  /*
+
  //Read voltage for the CO2 sensor
   int sensorValue = analogRead(sensorIn);
 
+
+  //Read voltage
+  int sensorValue = analogRead(sensorIn);
 
   // The analog signal is converted to a voltage
   float voltage = sensorValue*(5000/1024.0);
   if(voltage == 0)
   {
-    Serial.println("Fault");
+    M5.Lcd.println("Fault");
   }
   else if(voltage < 400)
   {
-    Serial.println("preheating");
+    M5.Lcd.println("preheating");
   }
   else
   {
     int voltage_diference=voltage-400;
     float concentration=voltage_diference*50.0/16.0;
     // Print Voltage
-    Serial.print("voltage:");
-    Serial.print(voltage);
-    Serial.println("mv");
+    M5.Lcd.print("voltage:");
+    M5.Lcd.print(voltage);
+    M5.Lcd.println("mv");
     //Print CO2 concentration
-    Serial.print(concentration);
-    Serial.println("ppm");
+    M5.Lcd.print(concentration);
+    M5.Lcd.println("ppm");
   }
-  delay(100); // This will show the ppm on the air of CO2
-  */
+  delay(500);
 
 }
 

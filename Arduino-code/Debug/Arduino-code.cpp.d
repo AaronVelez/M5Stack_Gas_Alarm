@@ -278,4 +278,7 @@ C:\Users\aivel\AppData\Local\Temp\VMBuilds\ARDUIN~1\ESP32_~1\Debug\Arduino-code.
  C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\WiFi\src/WiFiUdp.h \
  C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\cores\esp32/Udp.h \
  C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\cores\esp32/cbuf.h \
+ C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\WiFi\src/WiFiUdp.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\Time/TimeLib.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\NTPCLI~1/NTPClient.h \
  C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\DFROBO~1/DFRobot_OxygenSensor.h

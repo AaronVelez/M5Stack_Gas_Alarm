@@ -5,14 +5,30 @@
 */
 
 
+
+
 //////////////////////////////////////////////////////////////////
 ////// Libraries and its associated constants and variables //////
 //////////////////////////////////////////////////////////////////
 
-////// General libraries
+////// Board library
 #include <M5Stack.h>
+
+
+////// Comunication libraries
 #include <Wire.h>
-#include <WiFi.h> // VisualMicro compiler needs this to find the libraries M5Stack needs
+#include <WiFi.h>
+#include <WiFiUdp.h>
+const char* ssid = "<SSID>";
+const char* password = "<PASSWORD>";
+WiFiUDP ntpUDP;
+
+
+// Time libraries
+#include <TimeLib.h>
+#include <NTPClient.h>
+NTPClient timeClient(ntpUDP); // For details, see https://github.com/arduino-libraries/NTPClient
+
 
 ////// Library for Oxygen Sensor
 #include <DFRobot_OxygenSensor.h>
@@ -26,8 +42,10 @@
 */
 DFRobot_OxygenSensor Oxygen; // Decalre the class for the Oxygen sensor 
 
+
 ////// Library for SHT31 Temperature and Humidity Sensor
 //#include <DFRobot_SHT3x.h>
+
 
 
 
@@ -45,11 +63,13 @@ int dy = -1;	//Day
 int mo = -1;	//Month
 int yr = -1;	//Year
 
+
 ////// State machine Shift Registers
 int LastSum = -1;			// Last minute that variables were added to the sum for later averaging
 int SumNum = 0;				// Number of times a variable value has beed added to the sum for later averaging
 int LastLog = -1;			// Last minute that variables were loged to the SD card
 bool PayloadRdy = false;	// Payload ready to send to LoRa
+
 
 ////// Measured instantaneous variables
 float O2Value = -1;		// Oxygene value read each second
@@ -57,6 +77,19 @@ float CO2Value = -1;    // Carbon dioxide value read each second
 float Temp = -1;        // Air temperature read each minute
 float RH = -1;          // Air RH value read each minute
 
+
+////// Variables to store sum for eventual averaging
+float O2ValueSum = 0;
+float CO2ValueSum = 0;
+float TempSum = 0;
+float RHSum = 0;
+
+
+////// Values to be logged. They will be the average over the last 5 minutes
+float O2ValueAvg = 0;
+float CO2ValueAvg = 0;
+float TempAvg = 0;
+float RHAvg = 0;
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -66,8 +99,20 @@ void setup() {
     // Initialize M5Stack and setup power
     M5.begin();
     M5.Power.begin();
-    M5.Lcd.print("M5 started");
+    M5.Lcd.println("M5 started");
+    Serial.println("M5 started");
+    WiFi.begin(ssid, password);
+    WiFi.setAutoReconnect(true);
+    M5.Lcd.print("Connecting to internet");
+    while (WiFi.isConnected() != true) {
+        delay(500);
+        M5.Lcd.print(".");
+    }
+    M5.Lcd.println();
 
+    // Start NTP client engine
+    timeClient.begin();
+    
     //Serial.begin(115200); // initalize serial comunication with computer
     //Serial.println(F("Serial communication started"));
 
@@ -86,12 +131,27 @@ void loop() {
     M5.Lcd.print("Loop start");
 
     ////// State 2. Get current time
-    time_ms = millis();
-    // real time still needs to be added
+    if (WiFi.isConnected()) { // get unix timestamp from internet time
+        timeClient.update();
+        unix_t = timeClient.getEpochTime();
+        time_ms = millis();
+        M5.Lcd.println(time_ms);
+    }
+    else { // If no internet connection, estimate unixtime from last update and enlapsed millis
+        M5.Lcd.println("No internet");
+        // add code here
+    }
+    s = second(unix_t);
+    m = minute(unix_t);
+    h = hour(unix_t);
+    dy = day(unix_t);
+    mo = month(unix_t);
+    yr = year(unix_t);
+    M5.Lcd.println((String) "Time: " + h + ":" + m + ":" + s);
 
 
 
-    ////// State 3. Test if it is time to read gas sensor values (each second)
+    ////// State 3. Test if it is time to read gas sensor values (each second?)
     if (true) { // logical test still need to be added
         O2Value = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
         M5.Lcd.print((String)"Oxygene: " + O2Value + " %vol");
@@ -109,16 +169,28 @@ void loop() {
     
 
     ////// State 5. Test if it is time to read Temp and RH values AND record sensor values for 5-minute averages (each minute)
-    if (true) { // logical test still need to be added
+    if (m != LastSum) {
         // Read Temp and RH sensor values
         // add sensor value to sum variable
+        // Update Shift registers
+        LastSum = m;
+        SumNum += 1;
     }
 
 
-    ////// State 6. Test if it is time to record sensor values for 5-minute averages (each minute)
-    if (true) { // logical test still need to be added
+    ////// State 6. Test if it is time to compute  averages and record in SD card (each 5 minutes)
+    if (((m % 5) == 0) && (m != LastLog)) {
         // calculate averages
         // record averages to sd card
+        // Reset Shift Registers
+        LastLog = m;
+
+        O2ValueSum = 0;
+        CO2ValueSum = 0;
+        TempSum = 0;
+        RHSum = 0;
+
+        SumNum = 0;
     }
 
 

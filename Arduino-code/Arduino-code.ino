@@ -26,8 +26,8 @@ DFRobot_OxygenSensor Oxygen; // Decalre the class for the Oxygen sensor
 
 
 ////// Library for SHT31 Temperature and Humidity Sensor
-//#include <DFRobot_SHT3x.h>
-
+#include <DFRobot_SHT3x.h>
+DFRobot_SHT3x   sht3x;
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -46,6 +46,18 @@ void setup() {
     //Serial.println(F("Oxygen sensor started"));
     M5.Lcd.print("Oxygen started");
 
+   //SHT31 Temperature and Humidity Sensor
+   while (sht3x.begin() != 0) {
+    M5.Lcd.println("Failed to Initialize the chip, please confirm the wire connection");
+    delay(0);
+  }
+
+  M5.Lcd.print("Chip serial number");
+  M5.Lcd.println(sht3x.readSerialNumber());
+  
+   if(!sht3x.softReset()){
+     M5.Lcd.print("Failed to Initialize the chip....");
+   }
 }
  
 
@@ -54,7 +66,7 @@ void setup() {
 // The loop function runs over and over again until power down or reset //
 //////////////////////////////////////////////////////////////////////////
 void loop() {
-    M5.Lcd.print("LÑoop start");
+    M5.Lcd.print("Loop start");
     float oxygenData = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
     //Serial.print(" Oxygen concentration is ");
     //Serial.print(oxygenData);
@@ -62,6 +74,13 @@ void loop() {
     delay(500);
     M5.Lcd.print((String) "Oxygene: " + oxygenData + " %vol");
     delay(500);
+ 
+ //loop for SHT31 Temperature and Humidity Sensor
+  M5.Lcd.print(sht3x.getTemperatureC());
+  M5.Lcd.print(" C/ ");
+  M5.Lcd.print(sht3x.getHumidityRH());
+  M5.Lcd.print(" %RH");
+  delay(115200);
 
 
   /*

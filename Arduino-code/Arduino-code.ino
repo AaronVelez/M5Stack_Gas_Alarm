@@ -27,7 +27,13 @@ WiFiUDP ntpUDP;
 // Time libraries
 #include <TimeLib.h>
 #include <NTPClient.h>
-NTPClient timeClient(ntpUDP); // For details, see https://github.com/arduino-libraries/NTPClient
+NTPClient timeClient(ntpUDP, "north-america.pool.ntp.org", 0, 1000); // For details, see https://github.com/arduino-libraries/NTPClient
+
+#include <Timezone.h>
+//  Central Time Zone (Mexico City)
+TimeChangeRule mxCDT = { "CDT", First, Sun, Apr, 2, -300 };
+TimeChangeRule mxCST = { "CST", Last, Sun, Oct, 2, -360 };
+Timezone mxCT(mxCDT, mxCST);
 
 
 ////// Library for Oxygen Sensor
@@ -132,15 +138,21 @@ void loop() {
     M5.Lcd.print("Loop start");
 
     ////// State 2. Get current time
-    if (WiFi.isConnected()) { // get unix timestamp from internet time
-        timeClient.update();
+    if (WiFi.isConnected()) { // get UTC unix timestamp from internet time via NTC
+        timeClient.update();    // It does not force-update NTC time (see NTPClient declaration for actual udpate interval)
         unix_t = timeClient.getEpochTime();
+        unix_t = mxCT.toLocal(unix_t); // Conver to local time
+        setTime(unix_t);   // set system time to given unix timestamp
         time_ms = millis();
         M5.Lcd.println(time_ms);
     }
     else { // If no internet connection, estimate unixtime from last update and enlapsed millis
         M5.Lcd.println("No internet");
-        // add code here
+        if (millis() - time_ms > 1000) {
+            unix_t = unix_t + round(((millis() - time_ms) / 1000));
+            setTime(unix_t);   // set system time to given unix timestamp
+            time_ms = millis();
+        }
     }
     s = second(unix_t);
     m = minute(unix_t);

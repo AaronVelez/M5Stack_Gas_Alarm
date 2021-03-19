@@ -63,7 +63,7 @@ void setup() {
   analogRead(DEFAULT);
 }
  
-
+}
 
 //////////////////////////////////////////////////////////////////////////
 // The loop function runs over and over again until power down or reset //

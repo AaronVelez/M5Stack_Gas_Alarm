@@ -44,9 +44,11 @@ DFRobot_OxygenSensor Oxygen; // Decalre the class for the Oxygen sensor
 
 
 ////// Library for SHT31 Temperature and Humidity Sensor
-//#include <DFRobot_SHT3x.h>
+#include <DFRobot_SHT3x.h>
+DFRobot_SHT3x   sht3x;
 
-
+////// CO2 Sensor Input
+int sensorIn = G26; 
 
 
 //////////////////////////////////////////
@@ -120,7 +122,24 @@ void setup() {
     Oxygen.begin(Oxygen_IICAddress);
     //Serial.println(F("Oxygen sensor started"));
     M5.Lcd.print("Oxygen started");
+}
+ //SHT31 Temperature and Humidity Sensor
+   while (sht3x.begin() != 0) {
+    M5.Lcd.println("Failed to Initialize the chip, please confirm the wire connection");
+    delay(0);
+  }
 
+  M5.Lcd.print("Chip serial number");
+  M5.Lcd.println(sht3x.readSerialNumber());
+  
+   if(!sht3x.softReset()){
+     M5.Lcd.print("Failed to Initialize the chip....");
+   }
+ {
+  // Set the default voltage of the reference voltage for the CO2 Sensor
+  analogRead(DEFAULT);
+}
+   
 }
  
 

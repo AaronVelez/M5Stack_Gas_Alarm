@@ -174,7 +174,17 @@ void loop() {
     ////// State 3. Test if it is time to read gas sensor values (each second?)
     if (true) { // logical test still need to be added
         O2Value = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
-        M5.Lcd.print((String)"Oxygene: " + O2Value + " %vol");
+        CO2Value = analogRead(sensorIn);
+        float voltage = CO2Value*(5000/1024.0);
+        int voltage_diference=voltage-400;
+        float concentration=voltage_diference*50.0/16.0;
+        M5.Lcd.print(concentration);
+        M5.Lcd.printIn("ppm");
+        M5.Lcd.print((String)"Oxygene: " + O2Value + " %vol"); 
+        Temp = sht3x.getTemperatureC();
+        M5.Lcd.print(" C/ ");
+        RH = sht3x.getHumidityRH();
+        M5.Lcd.print(" %RH");
         ////// Test if values are within safe limits
         if (true) { // logical test still need to be added
             // Set alarm global variable to TRUE
@@ -219,37 +229,4 @@ void loop() {
         // add code here
     }
 
-
-  /*
- //Read voltage for the CO2 sensor
-  int sensorValue = analogRead(sensorIn);
-
-
-  // The analog signal is converted to a voltage
-  float voltage = sensorValue*(5000/1024.0);
-  if(voltage == 0)
-  {
-    Serial.println("Fault");
-  }
-  else if(voltage < 400)
-  {
-    Serial.println("preheating");
-  }
-  else
-  {
-    int voltage_diference=voltage-400;
-    float concentration=voltage_diference*50.0/16.0;
-    // Print Voltage
-    Serial.print("voltage:");
-    Serial.print(voltage);
-    Serial.println("mv");
-    //Print CO2 concentration
-    Serial.print(concentration);
-    Serial.println("ppm");
-  }
-  delay(100); // This will show the ppm on the air of CO2
-  */
-
 }
-
-

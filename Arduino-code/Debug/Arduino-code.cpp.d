@@ -279,7 +279,68 @@ C:\Users\aivel\AppData\Local\Temp\VMBuilds\ARDUIN~1\ESP32_~1\Debug\Arduino-code.
  C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\cores\esp32/Udp.h \
  C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\cores\esp32/cbuf.h \
  C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\WiFi\src/WiFiUdp.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/SdFat.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/common/SysCall.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\sdfatconfig.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/SdCard/SdCard.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/SdCard/SdioCard.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\syscall.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/SdCard/SdCardInterface.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\blockdeviceinterface.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\sdfatconfig.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/SdCard/SdCardInfo.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/SdCard/SdSpiCard.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\spidriver\sdspidriver.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\syscall.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\spidriver\SdSpiArduinoDriver.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/ExFatLib/ExFatLib.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/ExFatLib/ExFatVolume.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/ExFatLib/ExFatPartition.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\syscall.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\blockdevice.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/SdCard/SdCard.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\fscache.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\SysCall.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\BlockDevice.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\DebugMacros.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/ExFatLib/ExFatConfig.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\sdfatconfig.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/ExFatLib/ExFatTypes.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/ExFatLib/ExFatFile.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\fsdatetime.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\CompileDateTime.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\fsstructs.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\fsapiconstants.h \
+ C:\Users\aivel\AppData\Local\arduino15\packages\esp32\hardware\esp32\1.0.5/tools/sdk/include/newlib/fcntl.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\fmtnumber.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\arduinofiles.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/ExFatLib/ExFatFormatter.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/ExFatLib/upcase.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FatLib/FatLib.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FatLib/FatVolume.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FatLib/FatPartition.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FatLib/FatLibConfig.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/SdFatConfig.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\syscall.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\blockdevice.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\fscache.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\fsstructs.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FatLib/FatFile.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\fmtnumber.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\fsapiconstants.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\fsdatetime.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\common\arduinofiles.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FatLib/FatFormatter.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FsLib/FsLib.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FsLib/FsVolume.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FsLib/FsNew.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\fatlib\fatlib.h \
+ c:\users\aivel\docume~1\arduino\librar~1\sdfat\src\exfatlib\exfatlib.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FsLib/FsFile.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FatLib/FatLib.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/ExFatLib/ExFatLib.h \
  C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\Time/TimeLib.h \
  C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\NTPCLI~1/NTPClient.h \
  C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\Timezone\src/Timezone.h \
- C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\DFROBO~1/DFRobot_OxygenSensor.h
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\DFROBO~1/DFRobot_OxygenSensor.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\DFROBO~2/DFRobot_SHT3x.h

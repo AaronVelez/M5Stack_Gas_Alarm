@@ -24,11 +24,29 @@ const char* password = "<PASSWORD>";
 WiFiUDP ntpUDP;
 
 
-// Time libraries
+////// SD fat library used in order to use exFAT file system
+////// Adapted to Mg stack acording to https://github.com/ArminPP/sdFAT-M5Stack
+#include <SdFat.h>
+#define SPI_SPEED SD_SCK_MHZ(25)
+#define SD_CONFIG SdSpiConfig(TFCARD_CS_PIN, SHARED_SPI, SPI_SPEED) // TFCARD_CS_PIN is defined in M5Stack Config.h (Pin 4)
+/// <summary>
+/// IMPORTANT
+/// in file SdFat\src\SdFatConfig.h at Line 100 set to cero for NON dedicated SPI:
+/// #define ENABLE_DEDICATED_SPI 0
+/// </summary>
+SdExFat sd;
+ExFile LogFile;
+ExFile root;
+char line[250];
+String str = "";
+int position = 0;
+
+
+////// Time libraries
 #include <TimeLib.h>
 #include <NTPClient.h>
 NTPClient timeClient(ntpUDP, "north-america.pool.ntp.org", 0, 1000); // For details, see https://github.com/arduino-libraries/NTPClient
-
+// Time zone library
 #include <Timezone.h>
 //  Central Time Zone (Mexico City)
 TimeChangeRule mxCDT = { "CDT", First, Sun, Apr, 2, -300 };
@@ -53,13 +71,37 @@ DFRobot_OxygenSensor Oxygen; // Decalre the class for the Oxygen sensor
 #include <DFRobot_SHT3x.h>
 DFRobot_SHT3x   sht3x;
 
+
 ////// CO2 Sensor Input
-int sensorIn = G26; 
+const int CO2In = G35; 
 
 
 //////////////////////////////////////////
 ////// User Constants and Variables //////
 //////////////////////////////////////////
+
+////// Station IDs & Constants
+const int StaNum = 4;
+String StaType = F("Gas-Environmental Alarm");
+String StaName = F("Photosynthesis Lab Alarm");
+String Firmware = F("v1.0.0");
+//const float VRef = 3.3;
+const float CO2cal = 2.5;   // Calibrated coeficient to transform voltage to ppm
+const bool debug = true;
+
+
+////// Log File & Headers
+const char* FileName[] = { "2020.txt", "2021.txt", "2022.txt", "2023.txt", "2024.txt", "2025.txt", "2026.txt", "2027.txt", "2028.txt", "2029.txt",
+            "2030.txt", "2031.txt", "2032.txt", "2033.txt", "2034.txt", "2035.txt", "2036.txt", "2037.txt", "2038.txt", "2039.txt",
+            "2040.txt", "2041.txt", "2042.txt", "2043.txt", "2044.txt", "2045.txt", "2046.txt", "2047.txt", "2048.txt", "2049.txt",
+            "2050.txt" };
+const String Headers = F("UNIX_t\tyear\tmonth\tday\thour\tminute\tsecond\t\
+O2%\tCO2ppm\t\
+AirTemp\tAirRH\t\
+SentIoT");
+const int HeaderN = 11;	// Number of items in header (columns); it is cero indexed
+String LogString = "";
+
 
 ////// Time variables
 unsigned long time_ms = 0;
@@ -73,29 +115,37 @@ int yr = -1;	//Year
 
 
 ////// State machine Shift Registers
+int LastSec = -1;           // Last second that gas sensor values where measured
 int LastSum = -1;			// Last minute that variables were added to the sum for later averaging
 int SumNum = 0;				// Number of times a variable value has beed added to the sum for later averaging
 int LastLog = -1;			// Last minute that variables were loged to the SD card
 bool PayloadRdy = false;	// Payload ready to send to LoRa
 
 
+////// Alarm variables
+bool O2low = false;
+bool O2high = false;
+bool CO2high = false;
+                            
 ////// Measured instantaneous variables
 float O2Value = -1;		// Oxygene value read each second
-float CO2Value = -1;    // Carbon dioxide value read each second
+float CO2raw = -1;    // Carbon dioxide value read each second
+float CO2Volt = -1;    // Carbon dioxide value read each second
+float CO2ppm = -1;
 float Temp = -1;        // Air temperature read each minute
 float RH = -1;          // Air RH value read each minute
 
 
 ////// Variables to store sum for eventual averaging
 float O2ValueSum = 0;
-float CO2ValueSum = 0;
+float CO2ppmSum = 0;
 float TempSum = 0;
 float RHSum = 0;
 
 
 ////// Values to be logged. They will be the average over the last 5 minutes
 float O2ValueAvg = 0;
-float CO2ValueAvg = 0;
+float CO2ppmAvg = 0;
 float TempAvg = 0;
 float RHAvg = 0;
 
@@ -104,48 +154,64 @@ float RHAvg = 0;
 // the setup function runs once when you press reset or power the board //
 //////////////////////////////////////////////////////////////////////////
 void setup() {
-    // Initialize M5Stack and setup power
+    ////// Initialize and setup M5Stack
     M5.begin();
     M5.Power.begin();
-    M5.Lcd.println("M5 started");
-    Serial.println("M5 started");
+    M5.Lcd.println(F("M5 started"));
+    Serial.println(F("M5 started"));
     WiFi.begin(ssid, password);
     WiFi.setAutoReconnect(true);
-    M5.Lcd.print("Connecting to internet");
+    M5.Lcd.print(F("Connecting to internet"));
     while ( WiFi.status() != WL_CONNECTED ) {
         M5.Lcd.println(WiFi.status());
         delay(1000);
-        //M5.Lcd.print(".");
+        M5.Lcd.print(".");
     }
     M5.Lcd.println();
+    M5.Lcd.println(F("Setting Speaker"));
+    M5.Speaker.setBeep(900, 100);
+    M5.Speaker.setVolume(255);
+    M5.Speaker.update();
+    M5.Lcd.println();
 
-    // Start NTP client engine
-    timeClient.begin();
+
+    ////// Initialize SD card
+    sd.begin(SD_CONFIG);
+    // Reserve RAM memory for large and dynamic String object
+    // used in SD file write/read
+    // (prevents heap RAM framgentation)
+    LogString.reserve(HeaderN * 7);
+    str.reserve(HeaderN * 7);
     
-    //Serial.begin(115200); // initalize serial comunication with computer
-    //Serial.println(F("Serial communication started"));
 
-    Oxygen.begin(Oxygen_IICAddress);
-    //Serial.println(F("Oxygen sensor started"));
-    M5.Lcd.print("Oxygen started");
-}
- //SHT31 Temperature and Humidity Sensor
-   while (sht3x.begin() != 0) {
-    M5.Lcd.println("Failed to Initialize the chip, please confirm the wire connection");
-    delay(0);
-  }
+    //////// Start NTP client engine
+    M5.Lcd.println(F("Starting NTP client engine"));
+    timeClient.begin();
 
-  M5.Lcd.print("Chip serial number");
-  M5.Lcd.println(sht3x.readSerialNumber());
-  
-   if(!sht3x.softReset()){
-     M5.Lcd.print("Failed to Initialize the chip....");
-   }
- {
-  // Set the default voltage of the reference voltage for the CO2 Sensor
-  analogRead(DEFAULT);
-}
-   
+
+    /////// Start oxygene sensor
+    M5.Lcd.print(F("Starting Oxygen sensor"));
+    Oxygen.begin(Oxygen_IICAddress);    
+
+
+    ////// Configure ADC for reading CO2 sensor
+    analogSetClockDiv(128);     // Default is 1, higher value should result in lower sampling speed (better performance)
+    analogReadResolution(12);   // ADC read resolution
+    analogSetWidth(12);         // ADC sampling resolution
+    analogSetAttenuation(ADC_11db);  // ADC attenuation, with 11 dB the range is 150 to 2450 mV
+    // Adjust CO2 sensor reading if resolution or attenuation is changed
+
+
+    // Start SHT31 Temp and RH sensor
+    while (sht3x.begin() != 0) {
+        M5.Lcd.println(F("Failed to Initialize the chip, please confirm the wire connection"));
+        delay(0);
+    }
+    M5.Lcd.print(F("Chip serial number"));
+    M5.Lcd.println(sht3x.readSerialNumber());
+    if (!sht3x.softReset()) {
+        M5.Lcd.print(F("Failed to Initialize the chip...."));
+    }
 }
  
 
@@ -154,9 +220,12 @@ void setup() {
 // The loop function runs over and over again until power down or reset //
 //////////////////////////////////////////////////////////////////////////
 void loop() {
-    M5.Lcd.print("Loop start");
+    if (debug) {
+        M5.Lcd.print(F("Loop start"));
+    }
+    
 
-    ////// State 2. Get current time
+    ////// State 1. Get current time
     if (WiFi.isConnected()) { // get UTC unix timestamp from internet time via NTC
         timeClient.update();    // It does not force-update NTC time (see NTPClient declaration for actual udpate interval)
         unix_t = timeClient.getEpochTime();
@@ -165,8 +234,8 @@ void loop() {
         time_ms = millis();
         M5.Lcd.println(time_ms);
     }
-    else { // If no internet connection, estimate unixtime from last update and enlapsed millis
-        M5.Lcd.println("No internet");
+    else { // If no internet connection, estimate unixtime from last update and enlapsed miliseconds
+        if (debug) { M5.Lcd.println(F("No internet")); }
         if (millis() - time_ms > 1000) {
             unix_t = unix_t + round(((millis() - time_ms) / 1000));
             setTime(unix_t);   // set system time to given unix timestamp
@@ -179,41 +248,63 @@ void loop() {
     dy = day(unix_t);
     mo = month(unix_t);
     yr = year(unix_t);
-    M5.Lcd.println((String) "Time: " + h + ":" + m + ":" + s);
+    if (debug) { M5.Lcd.println((String)"Time: " + h + ":" + m + ":" + s); }
 
 
-
-    ////// State 3. Test if it is time to read gas sensor values (each second?)
-    if (true) { // logical test still need to be added
+    ////// State 2. Test if it is time to read gas sensor values (each second)
+    if (s != LastSec) { // logical test still need to be added
         O2Value = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
-        CO2Value = analogRead(sensorIn);
-        float voltage = CO2Value*(5000/1024.0);
-        int voltage_diference=voltage-400;
-        float concentration=voltage_diference*50.0/16.0;
-        M5.Lcd.print(concentration);
-        M5.Lcd.printIn("ppm");
-        M5.Lcd.print((String)"Oxygene: " + O2Value + " %vol"); 
-        Temp = sht3x.getTemperatureC();
-        M5.Lcd.print(" C/ ");
-        RH = sht3x.getHumidityRH();
-        M5.Lcd.print(" %RH");
-        ////// Test if values are within safe limits
-        if (true) { // logical test still need to be added
-            // Set alarm global variable to TRUE
+        CO2raw = analogRead(CO2In);
+        CO2Volt = (CO2raw * 2450) / 4096;   // With attenuation set to 11dB, 12 bit resolution maps to 2450 mV (see ADC setup)
+        CO2ppm = (CO2Volt - 400) * CO2cal;
+        if (debug) {
+            M5.Lcd.println();
+            M5.Lcd.println((String)"Oxygene: " + O2Value + " %vol");
+            M5.Lcd.println((String)"CO2: " + CO2ppm + " ppm");   
+            M5.Lcd.println();
         }
+        LastSec = s;
     }
 
     
-    ////// State 4. Test if alarm must be triggered
-    if (true) { // logical test still need to be added
-        // Triger alarm (sound, emails, flashes, etc)
-    }
-    
+    ////// State 3. Test gas limits
+    // Low oxygene
+    if (O2Value < 19) { O2low = true; }
+    else { O2low = false; }
+    // High oxygene
+    if (O2Value > 23) { O2high = true; }
+    else { O2low = false; }
+    // High carbon dioxide
+    if (CO2ppm > 2000) { CO2high = true; }
+    else { CO2high = false; }
 
-    ////// State 5. Test if it is time to read Temp and RH values AND record sensor values for 5-minute averages (each minute)
+
+    ////// State 4 trigger alarm
+    if (O2low || O2high || CO2high) {
+        if (s % 2 == 0) { M5.Speaker.beep(); }
+        else { M5.Speaker.mute(); }
+    }
+    else { M5.Speaker.mute(); }
+
+
+    ////// State 5. Test if it is time to read Temp and RH values
+    ////// AND record sensor values for 5-minute averages (each minute)
+    ////// AND update screen
     if (m != LastSum) {
-        // Read Temp and RH sensor values
-        // add sensor value to sum variable
+        Temp = sht3x.getTemperatureC();
+        RH = sht3x.getHumidityRH();
+        if (debug) {
+            M5.Lcd.println();
+            M5.Lcd.println((String)"Temp: " + Temp + " °C");
+            M5.Lcd.println((String)"RH: " + RH + " %");
+            M5.Lcd.println();
+        }
+        // Add new values to sum
+        O2ValueSum += O2Value;
+        CO2ppmSum += CO2ppm;
+        TempSum += Temp;
+        RHSum += RH;
+        
         // Update Shift registers
         LastSum = m;
         SumNum += 1;
@@ -222,13 +313,57 @@ void loop() {
 
     ////// State 6. Test if it is time to compute  averages and record in SD card (each 5 minutes)
     if (((m % 5) == 0) && (m != LastLog)) {
-        // calculate averages
-        // record averages to sd card
+        // Calculate averages
+        O2ValueAvg = O2ValueSum / SumNum;
+        CO2ppmAvg = CO2ppmSum / SumNum;
+        TempAvg = TempSum / SumNum;
+        RHAvg = RHSum / SumNum;
+        
+        
+        // Open Year LogFile (create if not available)
+        if (!LogFile.exists(FileName[yr - 2020])) {
+            LogFile.open((FileName[yr - 2020]), O_RDWR | O_CREAT); // Create file
+
+            // Add Metadata
+            LogFile.println("Start position of last line send to IoT:\t0");
+            // Tabs added to prevent line ending with 0. Line ending with 0 indicates that line needs to be sent to IoT.
+            LogFile.println(F("\t\t\t"));
+            LogFile.println("Metadata:");
+            LogFile.println((String)"Station Number\t" + StaNum + "\t\t\t");
+            LogFile.println((String)"Station Name\t" + StaName + "\t\t\t");
+            LogFile.println((String)"Station Type\t" + StaType + "\t\t\t");
+            LogFile.println((String)"Firmware\t" + Firmware + "\t\t\t");
+            LogFile.println((String)"CO2 sensor calibration\t" + CO2cal + "\t\t\t");
+            LogFile.println(F("\t\t\t"));
+            LogFile.println(F("\t\t\t"));
+            LogFile.println(F("\t\t\t"));
+            LogFile.println(F("\t\t\t"));
+            LogFile.println(F("\t\t\t"));
+            LogFile.println(F("\t\t\t"));
+            LogFile.println(F("\t\t\t"));
+
+            LogFile.println(Headers); // Add Headers
+        }
+        else {
+            LogFile.open(FileName[yr - 2020], O_RDWR); // Open file
+            LogFile.seekEnd(); // Set position to end of file
+        }
+
+
+        // Log to SD card
+        LogString = (String)unix_t + "\t" + yr + "\t" + mo + "\t" + dy + "\t" + h + "\t" + m + "\t" + s + "\t" +
+            String(O2ValueAvg, 4) + "\t" + String(CO2ppmAvg, 4) + "\t" +
+            String(TempAvg, 4) + "\t" + String(RHAvg, 4) + "\t" +
+            "0";
+        LogFile.println(LogString); // Prints Log string to SD card file "LogFile.txt"
+        LogFile.close(); // Close SD card file to save changes
+                 
+        
         // Reset Shift Registers
         LastLog = m;
 
         O2ValueSum = 0;
-        CO2ValueSum = 0;
+        CO2ppmSum = 0;
         TempSum = 0;
         RHSum = 0;
 
@@ -236,7 +371,7 @@ void loop() {
     }
 
 
-    ////// State 7. Test if there is data available to be sent to cloud
+    ////// State 7. Test if there is data available to be sent to IoT cloud
     if (true) { // logical test still need to be added
         // add code here
     }

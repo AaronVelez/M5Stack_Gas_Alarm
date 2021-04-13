@@ -18,10 +18,14 @@
 ////// Comunication libraries
 #include <Wire.h>
 #include <WiFi.h>
-#include <WiFiUdp.h>
 const char* ssid = "<SSID>";
 const char* password = "<PASSWORD>";
+#include <WiFiUdp.h>
 WiFiUDP ntpUDP;
+#include <ThingerWifi.h>
+ThingerWifi thing("velez001", "Gas_Alarm_PhotoLab", "<CREDENTIALS>");
+
+
 
 
 ////// SD fat library used in order to use exFAT file system
@@ -105,13 +109,14 @@ String LogString = "";
 
 ////// Time variables
 unsigned long time_ms = 0;
-time_t unix_t;	// UNIX time stamp
-int s = -1;		//Seconds
-int m = -1;		//Minutes
-int h = -1;		//Hours
-int dy = -1;	//Day
-int mo = -1;	//Month
-int yr = -1;	//Year
+time_t unix_t;	    // RT UNIX time stamp
+time_t SD_unix_t    // Recorded UNIX time stamp
+int s = -1;		    //Seconds
+int m = -1;		    //Minutes
+int h = -1;		    //Hours
+int dy = -1;	    //Day
+int mo = -1;	    //Month
+int yr = -1;	    //Year
 
 
 ////// State machine Shift Registers
@@ -175,6 +180,26 @@ void setup() {
     M5.Lcd.println();
 
 
+    ////// Configure IoT
+    thing.add_wifi(ssid, password);
+    thing["RT_Oxygene"] >> [](pson& out) { out = O2Value; };
+    thing["RT_Carbon_Dioxide"] >> [](pson& out) { out = CO2ppm; };
+    thing["RT_Temp"] >> [](pson& out) { out = Temp; };
+    thing["RT_RH"] >> [](pson& out) { out = RH; };
+    thing["Alarm_O2low"] >> [](pson& out) { out = O2low; };
+    thing["Alarm_O2high"] >> [](pson& out) { out = O2high; };
+    thing["Alarm_CO2high"] >> [](pson& out) { out = CO2high; };
+    
+    thing["Avg_Data"] >> [](pson& out) {
+        out["Time_Stamp"] = SD_unix_t;
+        out["Oxygene"] = O2ValueAvg;
+        out["Carbon_Dioxide"] = CO2ppmAvg;
+        out["Temperature"] = TempAvg;
+        out["Relative_Humidity"] = RHAvg;
+    };
+
+
+
     ////// Initialize SD card
     sd.begin(SD_CONFIG);
     // Reserve RAM memory for large and dynamic String object
@@ -223,6 +248,8 @@ void loop() {
     if (debug) {
         M5.Lcd.print(F("Loop start"));
     }
+    ////// State 0. Keep the Iot engine runing
+    thing.handle();
     
 
     ////// State 1. Get current time
@@ -328,7 +355,7 @@ void loop() {
             LogFile.println("Start position of last line send to IoT:\t0");
             // Tabs added to prevent line ending with 0. Line ending with 0 indicates that line needs to be sent to IoT.
             LogFile.println(F("\t\t\t"));
-            LogFile.println("Metadata:");
+            LogFile.println(F("Metadata:"));
             LogFile.println((String)"Station Number\t" + StaNum + "\t\t\t");
             LogFile.println((String)"Station Name\t" + StaName + "\t\t\t");
             LogFile.println((String)"Station Type\t" + StaType + "\t\t\t");
@@ -372,8 +399,66 @@ void loop() {
 
 
     ////// State 7. Test if there is data available to be sent to IoT cloud
-    if (true) { // logical test still need to be added
-        // add code here
+    if (PayloadRdy == false) {
+        root.open("/");	// Open root directory
+        root.rewind();	// Rewind root directory
+        while (LogFile.openNext(&root, O_RDWR)) {
+            LogFile.rewind();
+            LogFile.fgets(line, sizeof(line));     // Get first line
+            str = String(line);
+            str = str.substring(str.indexOf("\t"), str.indexOf("\r"));
+            if (str == "Done") {	// Skips file if year data is all sent to IoT
+                LogFile.close();
+                continue;
+            }
+            position = str.toInt();	// Sets file position to start of last line sent to IoT
+            LogFile.seekSet(position);	// Set position to last line sent to LoRa
+            // Read each line until a line not sent to IoT is found
+            while (LogFile.available()) {
+                position = LogFile.curPosition();  // START position of current line
+                int len = LogFile.fgets(line, sizeof(line));
+                if (line[len - 2] == '0') {
+                    Serial.println("Loteria!!!");
+                    str = String(line); // str is the payload, next state test if there is internet connection to send payload to IoT
+                    PayloadRdy = true;
+                    break;
+                }
+            }
+        }
+        root.close();
     }
+
+
+    ////// State 8. Test if there is Internet and a Payload to sent SD data to IoT
+    if ( WiFi.isConnected() && PayloadRdy ) {
+        // extract data from payload string (str)
+        for (int i = 0; i < HeaderN; 1++) {
+            String buffer = str.substring(0, str.indexOf('\t'));
+            if (i < 1 || i > 6) { 	// Do not send to LoRa human-readable date and time (columns 1 to 6)
+                if (i == 0) {   // UNIX Time
+                    SD_unix_t = buffer.toInt();
+                }
+                elif(i == 7) {  // O2
+                    O2ValueAvg = buffer.toFloat();
+                }
+                elif(i == 8) {  // CO2
+                    CO2ppmAvg = buffer.toFloat();
+                }
+                elif(i == 9) {  // Temp
+                    TempAvg = buffer.toFloat();
+                }
+                elif(i == 10) { // RH
+                    RHAvg = buffer.toFloat();
+                }
+            
+            
+            }
+            str = str.substring(str.indexOf('\t') + 1);
+        }
+        // send data to IoT
+        thing.stream("Avg_Data");
+        PayloadRdy = false;
+    }
+    
 
 }

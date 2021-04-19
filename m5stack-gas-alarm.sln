@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Arduino-code", "Arduino-cod
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test_Speaker", "Test_Speaker\Test_Speaker.vcxproj", "{1882076E-DD4F-4AAD-B76A-DF926D6C9985}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test_SDfat_Simple", "Test_SDfat_Simple\Test_SDfat_Simple.vcxproj", "{FC0C7147-0132-4BCD-B61D-5C8285AA85E5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -21,6 +23,10 @@ Global
 		{1882076E-DD4F-4AAD-B76A-DF926D6C9985}.Debug|x86.Build.0 = Debug|Win32
 		{1882076E-DD4F-4AAD-B76A-DF926D6C9985}.Release|x86.ActiveCfg = Release|Win32
 		{1882076E-DD4F-4AAD-B76A-DF926D6C9985}.Release|x86.Build.0 = Release|Win32
+		{FC0C7147-0132-4BCD-B61D-5C8285AA85E5}.Debug|x86.ActiveCfg = Debug|Win32
+		{FC0C7147-0132-4BCD-B61D-5C8285AA85E5}.Debug|x86.Build.0 = Debug|Win32
+		{FC0C7147-0132-4BCD-B61D-5C8285AA85E5}.Release|x86.ActiveCfg = Release|Win32
+		{FC0C7147-0132-4BCD-B61D-5C8285AA85E5}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

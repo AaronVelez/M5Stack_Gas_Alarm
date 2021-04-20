@@ -1,7 +1,9 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\.git",
+    "\\.git\\info"
   ],
-  "SelectedNode": "\\m5stack-gas-alarm.sln",
+  "SelectedNode": "\\.git\\info\\exclude",
   "PreviewInSolutionExplorer": false
 }

@@ -15,11 +15,13 @@
 #include <M5Stack.h>
 
 
-////// Credentials
+////// Credentials is a user library containing paswords, IDs and credentials
 #include "credentials.h"
 const char ssid[] = WIFI_SSID;
 const char password[] = WIFI_PASSWD;
-const char credential[] = IoT_CREDENTIAL;
+const char iot_user[] = IoT_USER;
+const char iot_device[] = IoT_DEVICE;
+const char iot_credential[] = IoT_CREDENTIAL;
 
 
 ////// Comunication libraries
@@ -32,7 +34,7 @@ WiFiUDP ntpUDP;
 //#define _DEBUG_   // Uncomment for debugging connection to Thinger
 #define _DISABLE_TLS_
 #include <ThingerESP32.h>
-ThingerESP32 thing("velez001", "Gas_Alarm_PhotoLab", credential);
+ThingerESP32 thing(iot_user, iot_device, iot_credential);
 
 
 

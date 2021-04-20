@@ -1,9 +1,9 @@
 {
   "ExpandedNodes": [
     "",
-    "\\.git",
-    "\\.git\\info"
+    "\\.git\\info",
+    "\\Arduino-code"
   ],
-  "SelectedNode": "\\.git\\info\\exclude",
+  "SelectedNode": "\\m5stack-gas-alarm.sln",
   "PreviewInSolutionExplorer": false
 }

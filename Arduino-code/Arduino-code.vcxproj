@@ -116,6 +116,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="credentials.h" />
     <ClInclude Include="__vm\.Arduino-code.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>

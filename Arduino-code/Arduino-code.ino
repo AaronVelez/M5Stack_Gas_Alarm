@@ -16,19 +16,23 @@
 
 
 ////// Credentials
+#include "credentials.h"
+const char ssid[] = WIFI_SSID;
+const char password[] = WIFI_PASSWD;
+const char credential[] = IoT_CREDENTIAL;
 
 
 ////// Comunication libraries
 #include <Wire.h>
 #include <WiFi.h>
-const char* ssid = "<SSID>";
-const char* password = "<PASSWORD>";
+//const char* ssid = "<SSID>";
+//const char* password = "<PASSWORD>";
 #include <WiFiUdp.h>
 WiFiUDP ntpUDP;
 //#define _DEBUG_   // Uncomment for debugging connection to Thinger
 #define _DISABLE_TLS_
 #include <ThingerESP32.h>
-ThingerESP32 thing("velez001", "Gas_Alarm_PhotoLab", "VlXwuBeUOK!J0&");
+ThingerESP32 thing("velez001", "Gas_Alarm_PhotoLab", credential);
 
 
 

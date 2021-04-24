@@ -31,8 +31,8 @@ const char iot_credential[] = IoT_CREDENTIAL;
 ////// Comunication libraries
 #include <Wire.h>
 #include <WiFi.h>
-const char* ssid = "SSID";
-const char* password = "PASSWORD";
+//const char* ssid = "SSID";
+//const char* password = "PASSWORD";
 #include <WiFiUdp.h>
 WiFiUDP ntpUDP;
 

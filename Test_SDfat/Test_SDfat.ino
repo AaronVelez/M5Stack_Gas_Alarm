@@ -5,7 +5,7 @@
 */
 
 time_t t_DataBucket = 0;             // Last time Data was sent to bucket (in UNIX time format) 
-const int DataBucket_frq = 150;       // Data bucket update frequency in seconds
+const int DataBucket_frq = 240;       // Data bucket update frequency in seconds
 
 
 //////////////////////////////////////////////////////////////////
@@ -28,8 +28,8 @@ const char iot_credential[] = IoT_CREDENTIAL;
 ////// Comunication libraries
 #include <Wire.h>
 #include <WiFi.h>
-const char* ssid = "SSID";
-const char* password = "PASSWORD";
+//const char* ssid = "SSID";
+//const char* password = "PASSWORD";
 #include <WiFiUdp.h>
 WiFiUDP ntpUDP;
 
@@ -262,7 +262,24 @@ void loop() {
         //Serial.println(F("Loop start serial"));
     }
     ////// State 0. Keep the Iot engine runing
-    thing.handle();
+    thing.handle(); 
+    
+    M5.Lcd.setCursor(10, 10);
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.print(F("Unix time: "));
+    M5.Lcd.println(unix_t);
+    M5.Lcd.print(F("Payload ready: "));
+    M5.Lcd.println(PayloadRdy);
+    M5.Lcd.print(F("Thing connected: "));
+    M5.Lcd.println(thing.is_connected());
+    
+    float x = millis();
+    while (millis() - x <= 2000) {
+        thing.handle();
+    }
+    M5.Lcd.clear(BLACK);
+    
 
 
     ////// State 1. Get current time
@@ -319,7 +336,7 @@ void loop() {
     else { O2low = false; }
     // High oxygene
     if (O2Value > 23) { O2high = true; }
-    else { O2low = false; }
+    else { O2high = false; }
     // High carbon dioxide
     if (CO2ppm > 2000) { CO2high = true; }
     else { CO2high = false; }
@@ -478,8 +495,8 @@ void loop() {
 
 
     ////// State 8. Test if there is Internet and a Payload to sent SD data to IoT
-    Serial.print(F("State 8 exec test: "));
-    Serial.println(WiFi.isConnected() &&
+    M5.Lcd.print(F("State 8 exec test: "));
+    M5.Lcd.println(WiFi.isConnected() &&
         thing.is_connected() &&
         PayloadRdy &&
         unix_t - t_DataBucket > DataBucket_frq);
@@ -516,9 +533,11 @@ void loop() {
             str = str.substring(str.indexOf('\t') + 1);
         }
         // send data to IoT. If succsessful, rewrite line in log File
-        // thing.write_bucket("Data_Gas_Alarm_PhotoLab", "Avg_Data", confirm_write = true)
+        // thing.write_bucket("Data_Gas_Alarm_PhotoLab", "Avg_Data", true)
         // thing.stream("Avg_Data")
+        M5.Lcd.print(F("Testing bucket success: "));
         if (thing.write_bucket("Data_Gas_Alarm_PhotoLab", "Avg_Data", true)) {
+            M5.Lcd.println(F("Loteria!!!"));
             LogFile.open(FileName[yrIoT - 2020], O_RDWR); // Open file containing the data just sent to IoT
             str = String(line);                     // Recover complete payload from original line
             str.setCharAt(str.length() - 2, '1');   // Replace 0 with 1, last characters are always "\r\n"

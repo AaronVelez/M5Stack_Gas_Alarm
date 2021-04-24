@@ -148,7 +148,7 @@ time_t t_email = 0;             // Last time an Alarm email was sent (in UNIX ti
 const int email_frq = 10;       // Alert e-mail frequency in minutes
 
 time_t t_DataBucket = 0;             // Last time Data was sent to bucket (in UNIX time format) 
-const int DataBucket_frq = 150;       // Data bucket update frequency in seconds
+const int DataBucket_frq = 120;       // Data bucket update frequency in seconds
 
 
 ////// Measured instantaneous variables

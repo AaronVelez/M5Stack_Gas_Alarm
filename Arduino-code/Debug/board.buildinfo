@@ -579,8 +579,8 @@ pid=0xEA60
 vidpid=10C4EA60
 vid_pid=0x10C4_0xEA60
 iserial=02013DBA
-extra.time.local=1619707294
-extra.time.utc=1619725294
+extra.time.local=1619708419
+extra.time.utc=1619726419
 extra.time.dst=-18000
 extra.time.zone=18000
 serial.port.caption=COM5   - Silicon Labs CP210x USB to UART Bridge
@@ -640,7 +640,7 @@ PreProcessor.HeaderCount=1
 PreProcessor.PrototypeCount=0
 vm.last.preproc.file.0.file=Arduino-code.ino
 vm.last.preproc.file.0.offset=1
-vm.last.preproc.file.0.length=22357
+vm.last.preproc.file.0.length=22358
 vm.last.preproc.file.0.linecount=601
 vm.last.preproc.file.0.linestart=0
 vm.last.preproc.file.0.lineend=601
@@ -706,10 +706,6 @@ vm.build_use_temp=1
 build.variant.path=C:\Users\aivel\AppData\Local\arduino15\packages\esp32\hardware\esp32\1.0.5\variants\m5stack_core_esp32
 archive_file=core.a
 archive_file_path=C:\Users\aivel\AppData\Local\Temp\VMBuilds\ARDUIN~1\ESP32_~1\Debug\core.a
-gccMinusESource=C:\Users\aivel\AppData\Local\Temp\VMBuilds\Arduino-code\esp32_m5stack-core-esp32\Debug\partitions.csv:1:3: error: invalid preprocessing directive #Name
- # Name,   Type, SubType, Offset,  Size, Flags
-   ^
-
 vm_all_includes= -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\cores\esp32"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\variants\M5STAC~3"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\M5Stack\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\Wire\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\SPI\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\FS\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\SD\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\SPIFFS\src"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\AIVR_C~1"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\WiFi\src"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\thinger.io\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\WIFICL~1\src"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\Time"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\NTPCLI~1"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\Timezone\src"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\DFROBO~1"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\DFROBO~2"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\HTTPCL~1\src" 
 vm_all_and_proj_includes= -I"C:\Users\aivel\DOCUME~1\PROYEC~1\FOTO-F~1\GASALA~1\Software\M5STAC~1\ARDUIN~1"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\cores\esp32"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\variants\M5STAC~3"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\M5Stack\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\Wire\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\SPI\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\FS\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\SD\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\SPIFFS\src"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\AIVR_C~1"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\WiFi\src"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\thinger.io\src"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\WIFICL~1\src"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\Time"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\NTPCLI~1"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\Timezone\src"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\DFROBO~1"  -I"C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\DFROBO~2"  -I"C:\Users\aivel\AppData\Local\ARDUIN~1\packages\esp32\hardware\esp32\10A26C~1.5\LIBRAR~1\HTTPCL~1\src" 
 vm_core_includes= -I"C:\Users\aivel\AppData\Local\arduino15\packages\esp32\hardware\esp32\1.0.5\cores\esp32"  -I"C:\Users\aivel\AppData\Local\arduino15\packages\esp32\hardware\esp32\1.0.5\variants\m5stack_core_esp32" 

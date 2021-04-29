@@ -587,7 +587,7 @@ void loop() {
         M5.Lcd.drawString(F("Air CO2 (ppm):"), 10 +160, 10 + 100);
         M5.Lcd.setFreeFont(&FreeSans20pt7b);
         M5.Lcd.setTextDatum(MC_DATUM);
-        M5.Lcd.drawString(String(CO2ppm), 80 + 160, 50 + 100);
+        M5.Lcd.drawString(String(CO2Volt), 80 + 160, 50 + 100);
 
         // Date and time
         M5.Lcd.fillRect(0, 200, 320, 240, M5.Lcd.color565(0, 0, 0));

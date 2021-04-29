@@ -15,6 +15,17 @@
 #include <M5Stack.h>
 
 
+////// GFX Free Fonts https://rop.nl/truetype2gfx/
+#include "FreeSans5pt7b.h"
+#include "FreeSans6pt7b.h"
+#include "FreeSans7pt7b.h"
+#include "FreeSans8pt7b.h"
+//#include "FreeSans9pt7b.h"
+#include "FreeSans10pt7b.h"
+#include "FreeSans15pt7b.h"
+#include "FreeSans20pt7b.h"
+
+
 ////// Credentials is a user library containing paswords, IDs and credentials
 #include "credentials.h"
 const char ssid[] = WIFI_SSID;
@@ -101,8 +112,8 @@ String StaType = F("Gas-Environmental Alarm");
 String StaName = F("Photosynthesis Lab Alarm");
 String Firmware = F("v1.0.0");
 //const float VRef = 3.3;
-const float CO2cal = 2.5;   // Calibrated coeficient to transform voltage to ppm
-const bool debug = true;
+const float CO2cal = 3.125;   // Calibrated coeficient to transform voltage to ppm
+const bool debug = false;
 
 
 ////// Log File & Headers
@@ -537,8 +548,53 @@ void loop() {
 
     ////// State 9. Update Screen
     if (true) {
-        // DANIELA, Add your code here:
+        // Top left, Temp
+        M5.Lcd.fillRect(0, 0, 160, 100, M5.Lcd.color565(255, 0, 0));
+        M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
+        M5.Lcd.setFreeFont(&FreeSans7pt7b);
+        M5.Lcd.setTextDatum(TL_DATUM);
+        M5.Lcd.drawString(F("Air Temp (C):"), 10, 10);
+        M5.Lcd.setFreeFont(&FreeSans20pt7b);
+        M5.Lcd.setTextDatum(MC_DATUM);
+        M5.Lcd.drawString(String(Temp), 80, 50);
+        
+        // Top right, Relative humidity
+        M5.Lcd.fillRect(160, 0, 160, 100, M5.Lcd.color565(0, 0, 255));
+        M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
+        M5.Lcd.setFreeFont(&FreeSans7pt7b);
+        M5.Lcd.setTextDatum(TL_DATUM);
+        M5.Lcd.drawString(F("Air RH (%):"), 10 + 160, 10);
+        M5.Lcd.setFreeFont(&FreeSans20pt7b);
+        M5.Lcd.setTextDatum(MC_DATUM);
+        M5.Lcd.drawString(String(RH), 80 + 160, 50);
+
+        // Bottom left, Oxygen
+        M5.Lcd.fillRect(0, 100, 160, 100, M5.Lcd.color565(0, 255, 0));
+        M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
+        M5.Lcd.setFreeFont(&FreeSans7pt7b);
+        M5.Lcd.setTextDatum(TL_DATUM);
+        M5.Lcd.drawString(F("Air Oxygen (%):"), 10, 10 + 100);
+        M5.Lcd.setFreeFont(&FreeSans20pt7b);
+        M5.Lcd.setTextDatum(MC_DATUM);
+        M5.Lcd.drawString(String(O2Value), 80, 50 + 100);
 
 
+        // Bottom right, Carbon dioxide
+        M5.Lcd.fillRect(160, 100, 160, 100, M5.Lcd.color565(128, 128, 128));
+        M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
+        M5.Lcd.setFreeFont(&FreeSans7pt7b);
+        M5.Lcd.setTextDatum(TL_DATUM);
+        M5.Lcd.drawString(F("Air CO2 (ppm):"), 10 +160, 10 + 100);
+        M5.Lcd.setFreeFont(&FreeSans20pt7b);
+        M5.Lcd.setTextDatum(MC_DATUM);
+        M5.Lcd.drawString(String(CO2ppm), 80 + 160, 50 + 100);
+
+        // Date and time
+        M5.Lcd.fillRect(0, 200, 320, 240, M5.Lcd.color565(0, 0, 0));
+        M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
+        M5.Lcd.setFreeFont(&FreeSans15pt7b);
+        M5.Lcd.setTextDatum(MC_DATUM);
+        M5.Lcd.drawString((String)"Time: " + h + ":" + m + ":" + s, 160, 220);
+        
     }
 }

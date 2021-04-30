@@ -113,7 +113,7 @@ String StaName = F("Photosynthesis Lab Alarm");
 String Firmware = F("v1.0.0");
 //const float VRef = 3.3;
 const float CO2cal = 3.125;   // Calibrated coeficient to transform voltage to ppm
-const bool debug = false;
+const bool debug = true;
 
 
 ////// Log File & Headers
@@ -164,8 +164,7 @@ const int DataBucket_frq = 120;       // Data bucket update frequency in seconds
 
 ////// Measured instantaneous variables
 float O2Value = -1;		// Oxygene value read each second
-float CO2raw = -1;    // Carbon dioxide value read each second
-float CO2Volt = -1;    // Carbon dioxide value read each second
+float CO2mVolt = -1;    // Carbon dioxide value read each second
 float CO2ppm = -1;
 float Temp = -1;        // Air temperature read each minute
 float RH = -1;          // Air RH value read each minute
@@ -280,7 +279,7 @@ void setup() {
 //////////////////////////////////////////////////////////////////////////
 void loop() {
     if (debug) {
-        M5.Lcd.print(F("Loop start"));
+        Serial.println(F("Loop start"));
     }
     ////// State 0. Keep the Iot engine runing
     thing.handle();
@@ -288,16 +287,19 @@ void loop() {
 
     ////// State 1. Get current time
     if (true) {
-        if (WiFi.isConnected()) { // get UTC unix timestamp from internet time via NTC
-            timeClient.update();    // It does not force-update NTC time (see NTPClient declaration for actual udpate interval)
+        // get UTC unix timestamp from internet time via NTC
+        if (timeClient.update()) { // It does not force-update NTC time (see NTPClient declaration for actual udpate interval)
             unix_t = timeClient.getEpochTime();
             unix_t = mxCT.toLocal(unix_t); // Conver to local time
             setTime(unix_t);   // set system time to given unix timestamp
             time_ms = millis();
-            if (debug) { M5.Lcd.println(time_ms); }
+            if (debug) {
+                Serial.println(F("Time cliente success"));
+                Serial.println(time_ms);
+            }
         }
         else { // If no internet connection, estimate unixtime from last update and enlapsed miliseconds
-            if (debug) { M5.Lcd.println(F("No internet")); }
+            if (debug) { Serial.println(F("No internet")); }
             if (millis() - time_ms > 1000) {
                 unix_t = unix_t + round(((millis() - time_ms) / 1000));
                 setTime(unix_t);   // set system time to given unix timestamp
@@ -310,21 +312,20 @@ void loop() {
         dy = day(unix_t);
         mo = month(unix_t);
         yr = year(unix_t);
-        if (debug) { M5.Lcd.println((String)"Time: " + h + ":" + m + ":" + s); }
+        if (debug) { Serial.println((String)"Time: " + h + ":" + m + ":" + s); }
     }
 
 
     ////// State 2. Test if it is time to read gas sensor values (each second)
     if (s != LastSec) { // logical test still need to be added
         O2Value = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
-        CO2raw = analogRead(CO2In);
-        CO2Volt = (CO2raw * 2450) / 4096;   // With attenuation set to 11dB, 12 bit resolution maps to 2450 mV (see ADC setup)
-        CO2ppm = (CO2Volt - 400) * CO2cal;
+        CO2mVolt = analogReadMilliVolts(CO2In);
+        CO2ppm = (CO2mVolt - 400) * CO2cal;
         if (debug) {
-            M5.Lcd.println();
-            M5.Lcd.println((String)"Oxygene: " + O2Value + " %vol");
-            M5.Lcd.println((String)"CO2: " + CO2ppm + " ppm");
-            M5.Lcd.println();
+            Serial.println();
+            Serial.println((String)"Oxygene: " + O2Value + " %vol");
+            Serial.println((String)"CO2: " + CO2ppm + " ppm");
+            Serial.println();
         }
         LastSec = s;
     }
@@ -392,10 +393,10 @@ void loop() {
         Temp = sht3x.getTemperatureC();
         RH = sht3x.getHumidityRH();
         if (debug) {
-            M5.Lcd.println();
-            M5.Lcd.println((String)"Temp: " + Temp + " °C");
-            M5.Lcd.println((String)"RH: " + RH + " %");
-            M5.Lcd.println();
+            Serial.println();
+            Serial.println((String)"Temp: " + Temp + " °C");
+            Serial.println((String)"RH: " + RH + " %");
+            Serial.println();
         }
         // Add new values to sum
         O2ValueSum += O2Value;
@@ -505,7 +506,15 @@ void loop() {
 
 
     ////// State 8. Test if there is Internet and a Payload to sent SD data to IoT
-    if (WiFi.isConnected() && PayloadRdy) {
+    if (debug) {
+        Serial.println(thing.is_connected() &&
+        PayloadRdy &&
+        unix_t - t_DataBucket > DataBucket_frq);
+    }
+    if (thing.is_connected() &&
+        PayloadRdy &&
+        unix_t - t_DataBucket > DataBucket_frq) {
+        t_DataBucket = unix_t; // Record Data Bucket update TRY; even if it is not succesfful
         // extract data from payload string (str)
         for (int i = 0; i < HeaderN; i++) {
             String buffer = str.substring(0, str.indexOf('\t'));
@@ -534,7 +543,11 @@ void loop() {
             str = str.substring(str.indexOf('\t') + 1);
         }
         // send data to IoT. If succsessful, rewrite line in log File
-        if (thing.stream("Avg_Data")) {
+        // thing.write_bucket("Data_Gas_Alarm_PhotoLab", "Avg_Data", true)
+        // thing.stream("Avg_Data")
+        if (debug) { Serial.print(F("Testing bucket success: ")); }
+        if (thing.write_bucket("Data_Gas_Alarm_PhotoLab", "Avg_Data", true)) {
+            if (debug) { Serial.println(F("Loteria!!!")); }
             LogFile.open(FileName[yrIoT - 2020], O_RDWR); // Open file containing the data just sent to IoT
             str = String(line);                     // Recover complete payload from original line
             str.setCharAt(str.length() - 2, '1');   // Replace 0 with 1, last characters are always "\r\n"
@@ -587,14 +600,14 @@ void loop() {
         M5.Lcd.drawString(F("Air CO2 (ppm):"), 10 +160, 10 + 100);
         M5.Lcd.setFreeFont(&FreeSans20pt7b);
         M5.Lcd.setTextDatum(MC_DATUM);
-        M5.Lcd.drawString(String(CO2Volt), 80 + 160, 50 + 100);
+        M5.Lcd.drawString(String(CO2ppm), 80 + 160, 50 + 100);
 
         // Date and time
         M5.Lcd.fillRect(0, 200, 320, 240, M5.Lcd.color565(0, 0, 0));
         M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
         M5.Lcd.setFreeFont(&FreeSans15pt7b);
         M5.Lcd.setTextDatum(MC_DATUM);
-        M5.Lcd.drawString((String)"Time: " + h + ":" + m + ":" + s, 160, 220);
+        M5.Lcd.drawString((String) dy + "/" + mo + "/" + yr + " at " + h + ":" + m + ":" + s, 160, 220);
         
     }
 }

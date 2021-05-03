@@ -42,7 +42,7 @@ const char iot_credential[] = IoT_CREDENTIAL;
 //const char* password = "<PASSWORD>";
 #include <WiFiUdp.h>
 WiFiUDP ntpUDP;
-//#define _DEBUG_   // Uncomment for debugging connection to Thinger
+#define _DEBUG_   // Uncomment for debugging connection to Thinger
 #define _DISABLE_TLS_
 #include <ThingerESP32.h>
 ThingerESP32 thing(iot_user, iot_device, iot_credential);
@@ -100,6 +100,9 @@ DFRobot_SHT3x   sht3x;
 
 ////// CO2 Sensor Input
 const int CO2In = G35;
+const int n = 100; // measure n times the ADC input for averaging
+float sum = 0; // shift register to hold ADC data
+
 
 
 //////////////////////////////////////////
@@ -253,7 +256,7 @@ void setup() {
 
 
     ////// Configure ADC for reading CO2 sensor
-    analogSetClockDiv(128);     // Default is 1, higher value should result in lower sampling speed (better performance)
+    analogSetClockDiv(1);     // Default is 1
     analogReadResolution(12);   // ADC read resolution
     analogSetWidth(12);         // ADC sampling resolution
     analogSetAttenuation(ADC_11db);  // ADC attenuation, with 11 dB the range is 150 to 2450 mV
@@ -319,7 +322,11 @@ void loop() {
     ////// State 2. Test if it is time to read gas sensor values (each second)
     if (s != LastSec) { // logical test still need to be added
         O2Value = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
-        CO2mVolt = analogReadMilliVolts(CO2In);
+        sum = 0;
+        for (int i = 0; i < n; i++) {
+            sum += analogReadMilliVolts(CO2In);
+        }
+        CO2mVolt = sum / n;
         CO2ppm = (CO2mVolt - 400) * CO2cal;
         if (debug) {
             Serial.println();

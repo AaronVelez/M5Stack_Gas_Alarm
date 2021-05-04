@@ -30,9 +30,11 @@
 #include "credentials.h"
 const char ssid[] = WIFI_SSID;
 const char password[] = WIFI_PASSWD;
+const char iot_server[] = IoT_SERVER;
 const char iot_user[] = IoT_USER;
 const char iot_device[] = IoT_DEVICE;
 const char iot_credential[] = IoT_CREDENTIAL;
+const char iot_data_bucket[] = IoT_DATA_BUCKET;
 
 
 ////// Comunication libraries
@@ -42,7 +44,8 @@ const char iot_credential[] = IoT_CREDENTIAL;
 //const char* password = "<PASSWORD>";
 #include <WiFiUdp.h>
 WiFiUDP ntpUDP;
-#define _DEBUG_   // Uncomment for debugging connection to Thinger
+#define THINGER_SERVER iot_server   // Delete this line if using a free thinger account 
+//#define _DEBUG_   // Uncomment for debugging connection to Thinger
 #define _DISABLE_TLS_
 #include <ThingerESP32.h>
 ThingerESP32 thing(iot_user, iot_device, iot_credential);
@@ -100,7 +103,7 @@ DFRobot_SHT3x   sht3x;
 
 ////// CO2 Sensor Input
 const int CO2In = G35;
-const int n = 100; // measure n times the ADC input for averaging
+const int n = 500; // measure n times the ADC input for averaging
 float sum = 0; // shift register to hold ADC data
 
 
@@ -116,7 +119,7 @@ String StaName = F("Photosynthesis Lab Alarm");
 String Firmware = F("v1.0.0");
 //const float VRef = 3.3;
 const float CO2cal = 3.125;   // Calibrated coeficient to transform voltage to ppm
-const bool debug = true;
+const bool debug = false;
 
 
 ////// Log File & Headers
@@ -256,7 +259,7 @@ void setup() {
 
 
     ////// Configure ADC for reading CO2 sensor
-    analogSetClockDiv(1);     // Default is 1
+    analogSetClockDiv(255);     // Default is 1
     analogReadResolution(12);   // ADC read resolution
     analogSetWidth(12);         // ADC sampling resolution
     analogSetAttenuation(ADC_11db);  // ADC attenuation, with 11 dB the range is 150 to 2450 mV
@@ -327,7 +330,12 @@ void loop() {
             sum += analogReadMilliVolts(CO2In);
         }
         CO2mVolt = sum / n;
-        CO2ppm = (CO2mVolt - 400) * CO2cal;
+        if (CO2mVolt < 400) { // Sensor in preheting if voltage is lower than 400 mV
+            CO2ppm = 0;   // Set value to cero to identify faulty datapoints
+        }
+        else {
+            CO2ppm = (CO2mVolt - 400) * CO2cal;
+        }
         if (debug) {
             Serial.println();
             Serial.println((String)"Oxygene: " + O2Value + " %vol");
@@ -550,10 +558,8 @@ void loop() {
             str = str.substring(str.indexOf('\t') + 1);
         }
         // send data to IoT. If succsessful, rewrite line in log File
-        // thing.write_bucket("Data_Gas_Alarm_PhotoLab", "Avg_Data", true)
-        // thing.stream("Avg_Data")
         if (debug) { Serial.print(F("Testing bucket success: ")); }
-        if (thing.write_bucket("Data_Gas_Alarm_PhotoLab", "Avg_Data", true)) {
+        if (thing.write_bucket(iot_data_bucket, "Avg_Data", true)) {
             if (debug) { Serial.println(F("Loteria!!!")); }
             LogFile.open(FileName[yrIoT - 2020], O_RDWR); // Open file containing the data just sent to IoT
             str = String(line);                     // Recover complete payload from original line

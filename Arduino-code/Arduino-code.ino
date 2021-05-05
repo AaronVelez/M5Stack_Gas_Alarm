@@ -26,7 +26,7 @@
 #include "FreeSans20pt7b.h"
 
 
-////// Credentials is a user library containing paswords, IDs and credentials
+////// Credentials.h is a user-created library containing paswords, IDs and credentials
 #include "credentials.h"
 const char ssid[] = WIFI_SSID;
 const char password[] = WIFI_PASSWD;
@@ -45,8 +45,8 @@ const char iot_data_bucket[] = IoT_DATA_BUCKET;
 #include <WiFiUdp.h>
 WiFiUDP ntpUDP;
 #define THINGER_SERVER iot_server   // Delete this line if using a free thinger account 
-//#define _DEBUG_   // Uncomment for debugging connection to Thinger
-#define _DISABLE_TLS_
+#define _DEBUG_   // Uncomment for debugging connection to Thinger
+#define _DISABLE_TLS_     // Uncoment if needed (port 25202 closed, for example)
 #include <ThingerESP32.h>
 ThingerESP32 thing(iot_user, iot_device, iot_credential);
 
@@ -74,7 +74,7 @@ int position = 0;
 ////// Time libraries
 #include <TimeLib.h>
 #include <NTPClient.h>
-NTPClient timeClient(ntpUDP, "north-america.pool.ntp.org", 0, 1000); // For details, see https://github.com/arduino-libraries/NTPClient
+NTPClient timeClient(ntpUDP, "north-america.pool.ntp.org", 0, 60000); // For details, see https://github.com/arduino-libraries/NTPClient
 // Time zone library
 #include <Timezone.h>
 //  Central Time Zone (Mexico City)
@@ -119,7 +119,7 @@ String StaName = F("Photosynthesis Lab Alarm");
 String Firmware = F("v1.0.0");
 //const float VRef = 3.3;
 const float CO2cal = 3.125;   // Calibrated coeficient to transform voltage to ppm
-const bool debug = false;
+const bool debug = true;
 
 
 ////// Log File & Headers
@@ -136,7 +136,6 @@ String LogString = "";
 
 
 ////// Time variables
-unsigned long time_ms = 0;
 time_t unix_t;	    // RT UNIX time stamp
 time_t SD_unix_t;    // Recorded UNIX time stamp
 int s = -1;		    // Seconds
@@ -165,7 +164,7 @@ time_t t_email = 0;             // Last time an Alarm email was sent (in UNIX ti
 const int email_frq = 10;       // Alert e-mail frequency in minutes
 
 time_t t_DataBucket = 0;             // Last time Data was sent to bucket (in UNIX time format) 
-const int DataBucket_frq = 120;       // Data bucket update frequency in seconds
+const int DataBucket_frq = 100;       // Data bucket update frequency in seconds (must be more than 60)
 
 
 ////// Measured instantaneous variables
@@ -214,10 +213,6 @@ void setup() {
     M5.Speaker.update();
     M5.Lcd.println();
 
-    // DANIELA, Add Lcd steup code here:
-
-
-
 
     ////// Configure IoT
     thing.add_wifi(ssid, password);
@@ -248,10 +243,18 @@ void setup() {
     str.reserve(HeaderN * 7);
 
 
-    //////// Start NTP client engine
+    //////// Start NTP client engine and update system time
     M5.Lcd.println(F("Starting NTP client engine"));
     timeClient.begin();
-
+    while (!timeClient.forceUpdate()) {
+        M5.Lcd.println(F("Trying to update NTP time"));
+        delay(1000);
+    }
+    M5.Lcd.println(F("NTP time updated"));
+    unix_t = timeClient.getEpochTime();
+    unix_t = mxCT.toLocal(unix_t); // Conver to local time
+    setTime(unix_t);   // set system time to given unix timestamp
+    
 
     /////// Start oxygene sensor
     M5.Lcd.print(F("Starting Oxygen sensor"));
@@ -268,13 +271,13 @@ void setup() {
 
     // Start SHT31 Temp and RH sensor
     while (sht3x.begin() != 0) {
-        M5.Lcd.println(F("Failed to Initialize the chip, please confirm the wire connection"));
+        M5.Lcd.println(F("Failed to initialize the chip, please confirm the wire connection"));
         delay(0);
     }
     M5.Lcd.print(F("Chip serial number"));
     M5.Lcd.println(sht3x.readSerialNumber());
     if (!sht3x.softReset()) {
-        M5.Lcd.print(F("Failed to Initialize the chip...."));
+        M5.Lcd.print(F("Failed to initialize the chip...."));
     }
 }
 
@@ -287,42 +290,37 @@ void loop() {
     if (debug) {
         Serial.println(F("Loop start"));
     }
-    ////// State 0. Keep the Iot engine runing
+    ////// State 1. Keep the Iot engine runing
     thing.handle();
 
 
-    ////// State 1. Get current time
+    ////// State 2. Get current time from system time
     if (true) {
-        // get UTC unix timestamp from internet time via NTC
-        if (timeClient.update()) { // It does not force-update NTC time (see NTPClient declaration for actual udpate interval)
-            unix_t = timeClient.getEpochTime();
-            unix_t = mxCT.toLocal(unix_t); // Conver to local time
-            setTime(unix_t);   // set system time to given unix timestamp
-            time_ms = millis();
-            if (debug) {
-                Serial.println(F("Time cliente success"));
-                Serial.println(time_ms);
-            }
-        }
-        else { // If no internet connection, estimate unixtime from last update and enlapsed miliseconds
-            if (debug) { Serial.println(F("No internet")); }
-            if (millis() - time_ms > 1000) {
-                unix_t = unix_t + round(((millis() - time_ms) / 1000));
-                setTime(unix_t);   // set system time to given unix timestamp
-                time_ms = millis();
-            }
-        }
-        s = second(unix_t);
-        m = minute(unix_t);
-        h = hour(unix_t);
-        dy = day(unix_t);
-        mo = month(unix_t);
-        yr = year(unix_t);
+        s = second();
+        m = minute();
+        h = hour();
+        dy = day();
+        mo = month();
+        yr = year();
         if (debug) { Serial.println((String)"Time: " + h + ":" + m + ":" + s); }
     }
 
 
-    ////// State 2. Test if it is time to read gas sensor values (each second)
+    ////// State 3. Update system time from NTP server every minute
+    if (timeClient.update()) { // It does not force-update NTC time (see NTPClient declaration for actual udpate interval)
+        unix_t = timeClient.getEpochTime();
+        unix_t = mxCT.toLocal(unix_t); // Conver to local time
+        setTime(unix_t);   // set system time to given unix timestamp
+        if (debug) { Serial.println(F("NTP client update success")); }
+    }
+    else {
+        if (debug) { Serial.println(F("NTP update not succesfull")); }
+    }
+
+
+
+
+    ////// State 4. Test if it is time to read gas sensor values (each second)
     if (s != LastSec) { // logical test still need to be added
         O2Value = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
         sum = 0;
@@ -346,7 +344,7 @@ void loop() {
     }
 
 
-    ////// State 3. Test gas limits
+    ////// State 5. Test gas limits
     // Always test
     if (true) {
         if (O2Value < 19) { O2low = true; }
@@ -360,7 +358,7 @@ void loop() {
     }
 
 
-    ////// State 4 trigger alarm
+    ////// State 6 trigger alarm
     if (O2low || O2high || CO2high) {
         for (int i = 0; i <= 20; i++) {
             BeepStr = millis();
@@ -401,7 +399,7 @@ void loop() {
     }
 
 
-    ////// State 5. Test if it is time to read Temp and RH values
+    ////// State 7. Test if it is time to read Temp and RH values
     ////// AND record sensor values for 5-minute averages (each minute)
     ////// AND update screen
     if (m != LastSum) {
@@ -425,7 +423,7 @@ void loop() {
     }
 
 
-    ////// State 6. Test if it is time to compute  averages and record in SD card (each 5 minutes)
+    ////// State 8. Test if it is time to compute  averages and record in SD card (each 5 minutes)
     if (((m % 5) == 0) && (m != LastLog)) {
         // Calculate averages
         O2ValueAvg = O2ValueSum / SumNum;
@@ -439,7 +437,7 @@ void loop() {
             LogFile.open((FileName[yr - 2020]), O_RDWR | O_CREAT); // Create file
 
             // Add Metadata
-            LogFile.println("Start position of last line send to IoT:\t1");
+            LogFile.println(F("Start position of last line send to IoT:\t1"));
             // Tabs added to prevent line ending with 0. Line ending with 0 indicates that line needs to be sent to IoT.
             LogFile.println(F("\t\t\t"));
             LogFile.println(F("Metadata:"));
@@ -485,7 +483,7 @@ void loop() {
     }
 
 
-    ////// State 7. Test if there is data available to be sent to IoT cloud
+    ////// State 9. Test if there is data available to be sent to IoT cloud
     if (PayloadRdy == false) {
         root.open("/");	// Open root directory
         root.rewind();	// Rewind root directory
@@ -508,7 +506,7 @@ void loop() {
                 position = LogFile.curPosition();  // START position of current line
                 int len = LogFile.fgets(line, sizeof(line));
                 if (line[len - 2] == '0') {
-                    Serial.println("Loteria!!!");
+                    Serial.println("Loteria, data found!!!");
                     str = String(line); // str is the payload, next state test if there is internet connection to send payload to IoT
                     PayloadRdy = true;
                     break;
@@ -520,7 +518,7 @@ void loop() {
     }
 
 
-    ////// State 8. Test if there is Internet and a Payload to sent SD data to IoT
+    ////// State 10. Test if there is Internet and a Payload to sent SD data to IoT
     if (debug) {
         Serial.println(thing.is_connected() &&
         PayloadRdy &&
@@ -560,11 +558,20 @@ void loop() {
         // send data to IoT. If succsessful, rewrite line in log File
         if (debug) { Serial.print(F("Testing bucket success: ")); }
         if (thing.write_bucket(iot_data_bucket, "Avg_Data", true)) {
-            if (debug) { Serial.println(F("Loteria!!!")); }
+            if (debug) { Serial.println(F("Loteria, data on Cloud!!!")); }
+            // Update line sent to IoT status
             LogFile.open(FileName[yrIoT - 2020], O_RDWR); // Open file containing the data just sent to IoT
             str = String(line);                     // Recover complete payload from original line
             str.setCharAt(str.length() - 2, '1');   // Replace 0 with 1, last characters are always "\r\n"
             LogFile.seekSet(position);              // Set position to start of line to be rewritten
+            LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
+            // Update start position of last line sent to IoT
+            LogFile.rewind();
+            LogFile.fgets(line, sizeof(line));     // Get first line
+            LogFile.rewind();
+            str = String(line);
+            str = str.substring(0, str.indexOf("\t"));
+            str = (String) str + "\t" + position;
             LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
             LogFile.close();
             PayloadRdy = false;
@@ -572,7 +579,7 @@ void loop() {
     }
 
 
-    ////// State 9. Update Screen
+    ////// State 11. Update Screen
     if (true) {
         // Top left, Temp
         M5.Lcd.fillRect(0, 0, 160, 100, M5.Lcd.color565(255, 0, 0));

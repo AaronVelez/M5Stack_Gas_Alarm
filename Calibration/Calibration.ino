@@ -77,6 +77,12 @@ Timezone mxCT(mxCDT, mxCST);
 ////// CO2 Sensor Input
 const int CO2In = G35;
 
+///// This is for the calibration process
+import processing.serial.*;
+
+byte [] buf = new byte[9];
+Serial s = new Serial(this, "COM9", 9600);
+
 
 //////////////////////////////////////////
 ////// User Constants and Variables //////
@@ -298,7 +304,7 @@ void loop() {
         RH = sht3x.getHumidityRH();
         if (debug) {
             M5.Lcd.println();
-            M5.Lcd.println((String)"Temp: " + Temp + " °C");
+            M5.Lcd.println((String)"Temp: " + Temp + " Â°C");
             M5.Lcd.println((String)"RH: " + RH + " %");
             M5.Lcd.println();
         }
@@ -373,25 +379,70 @@ void loop() {
     }
 
 
-    ////// State 9. Update Screen
+    ////// State 7. Update Screen
     if (true) {
         // Top left, Carbon dioxide Calibration
-        M5.Lcd.fillRect(160, 100, 160, 100, M5.Lcd.color565(128, 128, 128));
+        M5.Lcd.fillRect(0, 320, 320, 0, M5.Lcd.color565(128, 128, 128));
         M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
         M5.Lcd.setFreeFont(&FreeSans7pt7b);
-        M5.Lcd.setTextDatum(MC_DATUM);
-        M5.Lcd.drawString(F("Air CO2 (ppm):"), 10 + 160, 10 + 100);
+        M5.Lcd.setTextDatum(TL_DATUM);
+        M5.Lcd.drawString(F("Air CO2 (ppm):"), 10 +160, 10 + 100);
         M5.Lcd.setFreeFont(&FreeSans20pt7b);
         M5.Lcd.setTextDatum(MC_DATUM);
-        M5.Lcd.drawString(String(CO2Volt), 80 + 160, 50 + 100);
-
+        M5.Lcd.drawString(String(CO2ppm), 80 + 160, 50 + 100);
     
-        // Date and time
-        M5.Lcd.fillRect(0, 200, 320, 240, M5.Lcd.color565(0, 0, 0));
-        M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
-        M5.Lcd.setFreeFont(&FreeSans15pt7b);
-        M5.Lcd.setTextDatum(MC_DATUM);
-        M5.Lcd.drawString((String)"Time: " + h + ":" + m + ":" + s, 160, 220);
-
+       
     }
+    ///State 8. Press boton
+    if buttonA.wasPressed():
+lcd.print('Button A was Pressed\n');
+    }
+ 
+  ///State 9. Calibration begins
+ if (true) {
+  // calibrate zero point
+s.write(0xff);  // header
+s.write(0x01);  // sensor no
+s.write(0x87);  // command
+s.write(0x00);
+s.write(0x00);
+s.write(0x00);
+s.write(0x00);
+s.write(0x00);
+s.write(0x78);  // check value
+  
+  // read return value (9byte)
+print("read value : ");
+for (int i = 0; i < 9; ++i) {
+  buf[i] = (byte)s.read();
+  print(hex(buf[i]));
+  print(", ");
+}
+println();
+
+// read gas soncentration
+s.write(0xff);  // header
+s.write(0x01);  // sensor no
+s.write(0x86);  // command
+s.write(0x00);
+s.write(0x00);
+s.write(0x00);
+s.write(0x00);
+s.write(0x00);
+s.write(0x79);  // check value
+delay(500);
+
+// read return value (9byte)
+print("read value : ");
+for (int i = 0; i < 9; ++i) {
+  buf[i] = (byte)s.read();
+  print(hex(buf[i]));
+  print(", ");
+}
+println();
+
+int val = Byte.toUnsignedInt(buf[2]) * 256 + Byte.toUnsignedInt(buf[3]);
+println("co2=" + val);
+ }
+
 }

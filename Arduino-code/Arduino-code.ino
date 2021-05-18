@@ -119,7 +119,7 @@ String StaName = F("Photosynthesis Lab Alarm");
 String Firmware = F("v1.0.0");
 //const float VRef = 3.3;
 const float CO2cal = 3.125;   // Calibrated coeficient to transform voltage to ppm
-const bool debug = true;
+const bool debug = false;
 
 
 ////// Log File & Headers
@@ -144,7 +144,12 @@ int h = -1;		    // Hours
 int dy = -1;	    // Day
 int mo = -1;	    // Month
 int yr = -1;	    // Year
-int yrIoT = -1;     // Year of IoT data in payload
+// Time for IoT payload
+int mIoT = -1;
+int hIoT = -1;
+int dyIoT = -1;
+int moIoT = -1;
+int yrIoT = -1;
 
 
 ////// State machine Shift Registers
@@ -164,7 +169,7 @@ time_t t_email = 0;             // Last time an Alarm email was sent (in UNIX ti
 const int email_frq = 10;       // Alert e-mail frequency in minutes
 
 time_t t_DataBucket = 0;             // Last time Data was sent to bucket (in UNIX time format) 
-const int DataBucket_frq = 100;       // Data bucket update frequency in seconds (must be more than 60)
+const int DataBucket_frq = 120;       // Data bucket update frequency in seconds (must be more than 60)
 
 
 ////// Measured instantaneous variables
@@ -201,10 +206,17 @@ void setup() {
     WiFi.begin(ssid, password);
     WiFi.setAutoReconnect(true);
     M5.Lcd.print(F("Connecting to internet"));
-    while (WiFi.status() != WL_CONNECTED) {
-        M5.Lcd.println(WiFi.status());
-        delay(1000);
-        M5.Lcd.print(".");
+    // Test for a minute if there is WiFi connection;
+    // if not, continue to loop in order to monitor gas levels
+    for (int i = 0; i <= 60; i++) {
+        if (WiFi.status() != WL_CONNECTED) {
+            M5.Lcd.println(WiFi.status());
+            M5.Lcd.print(".");
+            delay(1000);
+        }
+        else {
+            break;
+        }
     }
     M5.Lcd.println();
     M5.Lcd.println(F("Setting Speaker"));
@@ -246,11 +258,19 @@ void setup() {
     //////// Start NTP client engine and update system time
     M5.Lcd.println(F("Starting NTP client engine"));
     timeClient.begin();
-    while (!timeClient.forceUpdate()) {
-        M5.Lcd.println(F("Trying to update NTP time"));
-        delay(1000);
+    M5.Lcd.println(F("Trying to update NTP time"));
+    // Test for a minute if NTP time can be updated;
+    // if not, continue to loop in order to monitor gas levels
+    for (int i = 0; i <= 60; i++) {
+        if (!timeClient.forceUpdate()) {
+            M5.Lcd.print(".");
+            delay(1000);
+        }
+        else {
+            M5.Lcd.println(F("NTP time updated"));
+            break;
+        }
     }
-    M5.Lcd.println(F("NTP time updated"));
     unix_t = timeClient.getEpochTime();
     unix_t = mxCT.toLocal(unix_t); // Conver to local time
     setTime(unix_t);   // set system time to given unix timestamp
@@ -270,11 +290,11 @@ void setup() {
 
 
     // Start SHT31 Temp and RH sensor
-    while (sht3x.begin() != 0) {
+    if (sht3x.begin() != 0) {
         M5.Lcd.println(F("Failed to initialize the chip, please confirm the wire connection"));
         delay(0);
     }
-    M5.Lcd.print(F("Chip serial number"));
+    M5.Lcd.print(F("Chip serial number: "));
     M5.Lcd.println(sht3x.readSerialNumber());
     if (!sht3x.softReset()) {
         M5.Lcd.print(F("Failed to initialize the chip...."));
@@ -388,10 +408,10 @@ void loop() {
                 EmailData["minute"] = m;
                 EmailData["second"] = s;
                 if (O2low) {
-                    thing.call_endpoint("Low_oxygen_email", EmailData);
+                    thing.call_endpoint("Low_oxygen_PhotoLab_email", EmailData);
                 }
                 if (O2high) {
-                    thing.call_endpoint("High_oxygen_email", EmailData);
+                    thing.call_endpoint("High_oxygen_PhotoLab_email", EmailData);
                 }
                 t_email = unix_t;
             }
@@ -531,12 +551,24 @@ void loop() {
         // extract data from payload string (str)
         for (int i = 0; i < HeaderN; i++) {
             String buffer = str.substring(0, str.indexOf('\t'));
-            if (i < 2 || i > 6) { 	// Do not send to IoT human-readable date/time (columns 1 to 6); get data year from column 2
+            if (i != 6) { 	// Do not read seconds info
                 if (i == 0) {   // UNIX Time
                     SD_unix_t = buffer.toInt();
                 }
                 else if (i == 1) {
                     yrIoT = buffer.toInt();
+                }
+                else if (i == 2) {
+                    moIoT = buffer.toInt();
+                }
+                else if (i == 3) {
+                    dyIoT = buffer.toInt();
+                }
+                else if (i == 4) {
+                    hIoT = buffer.toInt();
+                }
+                else if (i == 5) {
+                    mIoT = buffer.toInt();
                 }
                 else if (i == 7) {  // O2
                     O2ValueAvg = buffer.toFloat();
@@ -565,15 +597,28 @@ void loop() {
             str.setCharAt(str.length() - 2, '1');   // Replace 0 with 1, last characters are always "\r\n"
             LogFile.seekSet(position);              // Set position to start of line to be rewritten
             LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
-            // Update start position of last line sent to IoT
-            LogFile.rewind();
-            LogFile.fgets(line, sizeof(line));     // Get first line
-            LogFile.rewind();
-            str = String(line);
-            str = str.substring(0, str.indexOf("\t"));
-            str = (String) str + "\t" + position;
-            LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
-            LogFile.close();
+            // Test if this line is last line of year Log File, if so, write "Done" at the end of first line
+            if (moIoT == 12  &&  dyIoT == 31  &&  hIoT == 23  &&  mIoT == 55) {
+                LogFile.rewind();
+                LogFile.fgets(line, sizeof(line));     // Get first line
+                LogFile.rewind();
+                str = String(line);
+                str = str.substring(0, str.indexOf("\t"));
+                str = (String)str + "\t" + "Done";
+                LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
+                LogFile.close();
+            }
+            else {
+                // Update start position of last line sent to IoT
+                LogFile.rewind();
+                LogFile.fgets(line, sizeof(line));     // Get first line
+                LogFile.rewind();
+                str = String(line);
+                str = str.substring(0, str.indexOf("\t"));
+                str = (String)str + "\t" + position;
+                LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
+                LogFile.close();
+            }
             PayloadRdy = false;
         }
     }

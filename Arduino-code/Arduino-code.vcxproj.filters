@@ -48,5 +48,8 @@
     <ClInclude Include="FreeSans20pt7b.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FreeSans12pt7b.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -20,8 +20,9 @@
 #include "FreeSans6pt7b.h"
 #include "FreeSans7pt7b.h"
 #include "FreeSans8pt7b.h"
-//#include "FreeSans9pt7b.h"
+//#include "FreeSans9pt7b.h" already defined, it can be used
 #include "FreeSans10pt7b.h"
+//#include "FreeSans12pt7b.h" already defined, it can be used
 #include "FreeSans15pt7b.h"
 #include "FreeSans20pt7b.h"
 
@@ -118,8 +119,8 @@ String StaType = F("Gas-Environmental Alarm");
 String StaName = F("Photosynthesis Lab Alarm");
 String Firmware = F("v1.0.0");
 //const float VRef = 3.3;
-const float CO2cal = 3.125;   // Calibrated coeficient to transform voltage to ppm
-const bool debug = false;
+float CO2cal = 3.125;   // Calibrated coeficient to transform voltage to ppm.
+bool debug = false;
 
 
 ////// Log File & Headers
@@ -130,8 +131,9 @@ const char* FileName[] = { "2020.txt", "2021.txt", "2022.txt", "2023.txt", "2024
 const String Headers = F("UNIX_t\tyear\tmonth\tday\thour\tminute\tsecond\t\
 O2%\tCO2ppm\t\
 AirTemp\tAirRH\t\
+CO2cal\t\
 SentIoT");
-const int HeaderN = 11;	// Number of items in header (columns); it is cero indexed
+const int HeaderN = 12;	// Number of items in header (columns); it is cero indexed
 String LogString = "";
 
 
@@ -169,7 +171,7 @@ time_t t_email = 0;             // Last time an Alarm email was sent (in UNIX ti
 const int email_frq = 10;       // Alert e-mail frequency in minutes
 
 time_t t_DataBucket = 0;             // Last time Data was sent to bucket (in UNIX time format) 
-const int DataBucket_frq = 120;       // Data bucket update frequency in seconds (must be more than 60)
+const int DataBucket_frq = 150;       // Data bucket update frequency in seconds (must be more than 60)
 
 
 ////// Measured instantaneous variables
@@ -202,32 +204,41 @@ void setup() {
     M5.begin();
     M5.Power.begin();
     M5.Lcd.println(F("M5 started"));
-    Serial.println(F("M5 started"));
     WiFi.begin(ssid, password);
     WiFi.setAutoReconnect(true);
-    M5.Lcd.print(F("Connecting to internet"));
+    M5.Lcd.print(F("Connecting to internet..."));
     // Test for a minute if there is WiFi connection;
     // if not, continue to loop in order to monitor gas levels
     for (int i = 0; i <= 60; i++) {
         if (WiFi.status() != WL_CONNECTED) {
-            M5.Lcd.println(WiFi.status());
             M5.Lcd.print(".");
             delay(1000);
         }
         else {
+            M5.Lcd.println(F("Connected to internet!"));
             break;
         }
     }
-    M5.Lcd.println();
-    M5.Lcd.println(F("Setting Speaker"));
+    M5.Lcd.println(F("Setting Speaker..."));
     M5.Speaker.setBeep(900, 100);
     M5.Speaker.setVolume(255);
     M5.Speaker.update();
-    M5.Lcd.println();
 
 
     ////// Configure IoT
+    M5.Lcd.println(F("Configuring IoT..."));
     thing.add_wifi(ssid, password);
+    // Define input resources
+    thing["CO2_calibration"] << [](pson& in) {  // Factor is multiplied by 100 in IoT dashboard
+        if (in.is_empty()) { in = CO2cal * 100; }
+        else { CO2cal = in; CO2cal = CO2cal / 100; }
+    };
+    thing["Debug"] << [](pson& in) {
+        if (in.is_empty()) { in = debug; }
+        else { debug = in; }
+    };
+
+    // Define output resources
     thing["RT_Oxygene"] >> [](pson& out) { out = O2Value; };
     thing["RT_Carbon_Dioxide"] >> [](pson& out) { out = CO2ppm; };
     thing["RT_Temp"] >> [](pson& out) { out = Temp; };
@@ -245,8 +256,8 @@ void setup() {
     };
 
 
-
     ////// Initialize SD card
+    M5.Lcd.println(F("Setting SD card..."));
     sd.begin(SD_CONFIG);
     // Reserve RAM memory for large and dynamic String object
     // used in SD file write/read
@@ -256,9 +267,9 @@ void setup() {
 
 
     //////// Start NTP client engine and update system time
-    M5.Lcd.println(F("Starting NTP client engine"));
+    M5.Lcd.println(F("Starting NTP client engine..."));
     timeClient.begin();
-    M5.Lcd.println(F("Trying to update NTP time"));
+    M5.Lcd.println(F("Trying to update NTP time..."));
     // Test for a minute if NTP time can be updated;
     // if not, continue to loop in order to monitor gas levels
     for (int i = 0; i <= 60; i++) {
@@ -277,11 +288,12 @@ void setup() {
     
 
     /////// Start oxygene sensor
-    M5.Lcd.print(F("Starting Oxygen sensor"));
+    M5.Lcd.print(F("Starting Oxygen sensor..."));
     Oxygen.begin(Oxygen_IICAddress);
 
 
     ////// Configure ADC for reading CO2 sensor
+    M5.Lcd.print(F("Setting ADC for CO2 sensor..."));
     analogSetClockDiv(255);     // Default is 1
     analogReadResolution(12);   // ADC read resolution
     analogSetWidth(12);         // ADC sampling resolution
@@ -290,6 +302,7 @@ void setup() {
 
 
     // Start SHT31 Temp and RH sensor
+    M5.Lcd.print(F("Starting Temp/RH sensor..."));
     if (sht3x.begin() != 0) {
         M5.Lcd.println(F("Failed to initialize the chip, please confirm the wire connection"));
         delay(0);
@@ -299,6 +312,11 @@ void setup() {
     if (!sht3x.softReset()) {
         M5.Lcd.print(F("Failed to initialize the chip...."));
     }
+
+
+    M5.Lcd.print(F("Setup done!"));
+    delay(500);
+    M5.Lcd.clear(BLACK);
 }
 
 
@@ -308,7 +326,12 @@ void setup() {
 //////////////////////////////////////////////////////////////////////////
 void loop() {
     if (debug) {
-        Serial.println(F("Loop start"));
+        M5.Lcd.clear(BLACK);
+        M5.Lcd.setTextDatum(TL_DATUM);
+        M5.Lcd.setCursor(0, 10);
+        M5.Lcd.setFreeFont(&FreeSans6pt7b);
+        M5.Lcd.print(F("Loop start at: "));
+        M5.Lcd.println(millis());
     }
     ////// State 1. Keep the Iot engine runing
     thing.handle();
@@ -322,7 +345,7 @@ void loop() {
         dy = day();
         mo = month();
         yr = year();
-        if (debug) { Serial.println((String)"Time: " + h + ":" + m + ":" + s); }
+        if (debug) { M5.Lcd.println((String)"Time: " + h + ":" + m + ":" + s); }
     }
 
 
@@ -331,10 +354,10 @@ void loop() {
         unix_t = timeClient.getEpochTime();
         unix_t = mxCT.toLocal(unix_t); // Conver to local time
         setTime(unix_t);   // set system time to given unix timestamp
-        if (debug) { Serial.println(F("NTP client update success")); }
+        if (debug) { M5.Lcd.println(F("NTP client update success!")); }
     }
     else {
-        if (debug) { Serial.println(F("NTP update not succesfull")); }
+        if (debug) { M5.Lcd.println(F("NTP update not succesfull")); }
     }
 
 
@@ -355,10 +378,8 @@ void loop() {
             CO2ppm = (CO2mVolt - 400) * CO2cal;
         }
         if (debug) {
-            Serial.println();
-            Serial.println((String)"Oxygene: " + O2Value + " %vol");
-            Serial.println((String)"CO2: " + CO2ppm + " ppm");
-            Serial.println();
+            M5.Lcd.println((String)"Oxygene: " + O2Value + " %vol");
+            M5.Lcd.println((String)"CO2: " + CO2ppm + " ppm");
         }
         LastSec = s;
     }
@@ -426,10 +447,8 @@ void loop() {
         Temp = sht3x.getTemperatureC();
         RH = sht3x.getHumidityRH();
         if (debug) {
-            Serial.println();
-            Serial.println((String)"Temp: " + Temp + " °C");
-            Serial.println((String)"RH: " + RH + " %");
-            Serial.println();
+            M5.Lcd.println((String)"Temp: " + Temp + " °C");
+            M5.Lcd.println((String)"RH: " + RH + " %");
         }
         // Add new values to sum
         O2ValueSum += O2Value;
@@ -465,7 +484,6 @@ void loop() {
             LogFile.println((String)"Station Name\t" + StaName + "\t\t\t");
             LogFile.println((String)"Station Type\t" + StaType + "\t\t\t");
             LogFile.println((String)"Firmware\t" + Firmware + "\t\t\t");
-            LogFile.println((String)"CO2 sensor calibration\t" + CO2cal + "\t\t\t");
             LogFile.println(F("\t\t\t"));
             LogFile.println(F("\t\t\t"));
             LogFile.println(F("\t\t\t"));
@@ -486,6 +504,7 @@ void loop() {
         LogString = (String)unix_t + "\t" + yr + "\t" + mo + "\t" + dy + "\t" + h + "\t" + m + "\t" + s + "\t" +
             String(O2ValueAvg, 4) + "\t" + String(CO2ppmAvg, 4) + "\t" +
             String(TempAvg, 4) + "\t" + String(RHAvg, 4) + "\t" +
+            String(CO2cal, 4) + "\t" +
             "0";
         LogFile.println(LogString); // Prints Log string to SD card file "LogFile.txt"
         LogFile.close(); // Close SD card file to save changes
@@ -514,6 +533,10 @@ void loop() {
             LogFile.rewind();
             LogFile.fgets(line, sizeof(line));     // Get first line
             str = String(line);
+            if (debug) {
+                M5.Lcd.print(F("File first line: "));
+                M5.Lcd.println(str.substring(0, str.indexOf("\r")));
+            }
             str = str.substring(str.indexOf("\t"), str.indexOf("\r"));
             if (str == "Done") {	// Skips file if year data is all sent to IoT
                 LogFile.close();
@@ -526,8 +549,12 @@ void loop() {
                 position = LogFile.curPosition();  // START position of current line
                 int len = LogFile.fgets(line, sizeof(line));
                 if (line[len - 2] == '0') {
-                    Serial.println("Loteria, data found!!!");
                     str = String(line); // str is the payload, next state test if there is internet connection to send payload to IoT
+                    if (debug) {
+                        M5.Lcd.println("Loteria, data to send to IoT found!");
+                        M5.Lcd.print(F("Data: "));
+                        M5.Lcd.println(str.substring(0, str.indexOf("\r")));
+                    }
                     PayloadRdy = true;
                     break;
                 }
@@ -540,7 +567,8 @@ void loop() {
 
     ////// State 10. Test if there is Internet and a Payload to sent SD data to IoT
     if (debug) {
-        Serial.println(thing.is_connected() &&
+        M5.Lcd.print(F("Thing connected, payload ready and enought time has enlapsed: "));
+        M5.Lcd.println(thing.is_connected() &&
         PayloadRdy &&
         unix_t - t_DataBucket > DataBucket_frq);
     }
@@ -588,10 +616,15 @@ void loop() {
             str = str.substring(str.indexOf('\t') + 1);
         }
         // send data to IoT. If succsessful, rewrite line in log File
-        if (debug) { Serial.print(F("Testing bucket success: ")); }
-        if (thing.write_bucket(iot_data_bucket, "Avg_Data", true)) {
-            if (debug) { Serial.println(F("Loteria, data on Cloud!!!")); }
+        if (thing.write_bucket(iot_data_bucket, "Avg_Data", true) == 1) {
+            if (debug) { M5.Lcd.println(F("Loteria, data on Cloud!!!")); }
             // Update line sent to IoT status
+            if (debug) {
+                M5.Lcd.print(F("IoT year: "));
+                M5.Lcd.println(yrIoT);
+                M5.Lcd.print(F("File name: "));
+                M5.Lcd.println(FileName[yrIoT - 2020]);
+            }
             LogFile.open(FileName[yrIoT - 2020], O_RDWR); // Open file containing the data just sent to IoT
             str = String(line);                     // Recover complete payload from original line
             str.setCharAt(str.length() - 2, '1');   // Replace 0 with 1, last characters are always "\r\n"
@@ -601,10 +634,10 @@ void loop() {
             if (moIoT == 12  &&  dyIoT == 31  &&  hIoT == 23  &&  mIoT == 55) {
                 LogFile.rewind();
                 LogFile.fgets(line, sizeof(line));     // Get first line
-                LogFile.rewind();
                 str = String(line);
                 str = str.substring(0, str.indexOf("\t"));
                 str = (String)str + "\t" + "Done";
+                LogFile.rewind();
                 LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
                 LogFile.close();
             }
@@ -612,20 +645,21 @@ void loop() {
                 // Update start position of last line sent to IoT
                 LogFile.rewind();
                 LogFile.fgets(line, sizeof(line));     // Get first line
-                LogFile.rewind();
                 str = String(line);
                 str = str.substring(0, str.indexOf("\t"));
                 str = (String)str + "\t" + position;
+                LogFile.rewind();
                 LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
                 LogFile.close();
             }
             PayloadRdy = false;
         }
+        
     }
 
 
     ////// State 11. Update Screen
-    if (true) {
+    if (!debug) {
         // Top left, Temp
         M5.Lcd.fillRect(0, 0, 160, 100, M5.Lcd.color565(255, 0, 0));
         M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
@@ -670,9 +704,30 @@ void loop() {
         // Date and time
         M5.Lcd.fillRect(0, 200, 320, 240, M5.Lcd.color565(0, 0, 0));
         M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
-        M5.Lcd.setFreeFont(&FreeSans15pt7b);
-        M5.Lcd.setTextDatum(MC_DATUM);
-        M5.Lcd.drawString((String) dy + "/" + mo + "/" + yr + " at " + h + ":" + m + ":" + s, 160, 220);
+        M5.Lcd.setFreeFont(&FreeSans12pt7b);
+        M5.Lcd.setTextDatum(ML_DATUM);
+        M5.Lcd.drawString((String) dy + "/" + mo + "/" + yr + "  " + h + ":" + m + ":" + s, 10, 220);
         
+
+        // IoT connection
+        if (thing.is_connected()) {
+            M5.Lcd.setFreeFont(&FreeSans12pt7b);
+            M5.Lcd.setTextDatum(MR_DATUM);
+            M5.Lcd.drawString(F("IoT"), 320 - 10, 220);
+        }
+    }
+
+
+    if (debug) {
+        M5.Lcd.print(F("Loop end at: "));
+        M5.Lcd.println(millis());
+        M5.Lcd.println(F("Press button A to continue"));
+        while (true) {
+            thing.handle(); // Keep IoT engine runningat all times
+            M5.update();    // Update buyyom state
+            if (M5.BtnA.wasPressed()) {
+                break;
+            }
+        }
     }
 }

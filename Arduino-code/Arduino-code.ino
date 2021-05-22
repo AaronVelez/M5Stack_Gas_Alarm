@@ -27,8 +27,8 @@
 #include "FreeSans20pt7b.h"
 
 
-////// Credentials.h is a user-created library containing paswords, IDs and credentials
-#include "credentials.h"
+////// Credentials_Gas_Alarm_Photo_Lab.h is a user-created library containing paswords, IDs and credentials
+#include "Credentials_Gas_Alarm_Photo_Lab.h"
 const char ssid[] = WIFI_SSID;
 const char password[] = WIFI_PASSWD;
 const char iot_server[] = IoT_SERVER;
@@ -41,8 +41,6 @@ const char iot_data_bucket[] = IoT_DATA_BUCKET;
 ////// Comunication libraries
 #include <Wire.h>
 #include <WiFi.h>
-//const char* ssid = "<SSID>";
-//const char* password = "<PASSWORD>";
 #include <WiFiUdp.h>
 WiFiUDP ntpUDP;
 #define THINGER_SERVER iot_server   // Delete this line if using a free thinger account 
@@ -99,7 +97,7 @@ DFRobot_OxygenSensor Oxygen; // Decalre the class for the Oxygen sensor
 
 ////// Library for SHT31 Temperature and Humidity Sensor
 #include <DFRobot_SHT3x.h>
-DFRobot_SHT3x   sht3x;
+DFRobot_SHT3x sht3x(&Wire,/*address=*/0x45,/*RST=*/4);
 
 
 ////// CO2 Sensor Input
@@ -116,7 +114,7 @@ float sum = 0; // shift register to hold ADC data
 ////// Station IDs & Constants
 const int StaNum = 4;
 String StaType = F("Gas-Environmental Alarm");
-String StaName = F("Photosynthesis Lab Alarm");
+String StaName = F("Gas Alarm Photosynthesis Lab");
 String Firmware = F("v1.0.0");
 //const float VRef = 3.3;
 float CO2cal = 3.125;   // Calibrated coeficient to transform voltage to ppm.
@@ -133,7 +131,7 @@ O2%\tCO2ppm\t\
 AirTemp\tAirRH\t\
 CO2cal\t\
 SentIoT");
-const int HeaderN = 12;	// Number of items in header (columns); it is cero indexed
+const int HeaderN = 12;	// Number of items in header (columns), Also used as a cero-indexed header index
 String LogString = "";
 
 
@@ -220,9 +218,9 @@ void setup() {
         }
     }
     M5.Lcd.println(F("Setting Speaker..."));
-    M5.Speaker.setBeep(900, 100);
-    M5.Speaker.setVolume(255);
-    M5.Speaker.update();
+    //M5.Speaker.setBeep(900, 100);
+    //M5.Speaker.setVolume(255);
+    //M5.Speaker.update();
 
 
     ////// Configure IoT
@@ -288,12 +286,12 @@ void setup() {
     
 
     /////// Start oxygene sensor
-    M5.Lcd.print(F("Starting Oxygen sensor..."));
+    M5.Lcd.println(F("Starting Oxygen sensor..."));
     Oxygen.begin(Oxygen_IICAddress);
 
 
     ////// Configure ADC for reading CO2 sensor
-    M5.Lcd.print(F("Setting ADC for CO2 sensor..."));
+    M5.Lcd.println(F("Setting ADC for CO2 sensor..."));
     analogSetClockDiv(255);     // Default is 1
     analogReadResolution(12);   // ADC read resolution
     analogSetWidth(12);         // ADC sampling resolution
@@ -302,10 +300,10 @@ void setup() {
 
 
     // Start SHT31 Temp and RH sensor
-    M5.Lcd.print(F("Starting Temp/RH sensor..."));
+    M5.Lcd.println(F("Starting Temp/RH sensor..."));
     if (sht3x.begin() != 0) {
         M5.Lcd.println(F("Failed to initialize the chip, please confirm the wire connection"));
-        delay(0);
+        delay(1000);
     }
     M5.Lcd.print(F("Chip serial number: "));
     M5.Lcd.println(sht3x.readSerialNumber());
@@ -364,7 +362,7 @@ void loop() {
 
 
     ////// State 4. Test if it is time to read gas sensor values (each second)
-    if (s != LastSec) { // logical test still need to be added
+    if (s != LastSec) {
         O2Value = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
         sum = 0;
         for (int i = 0; i < n; i++) {
@@ -442,7 +440,6 @@ void loop() {
 
     ////// State 7. Test if it is time to read Temp and RH values
     ////// AND record sensor values for 5-minute averages (each minute)
-    ////// AND update screen
     if (m != LastSum) {
         Temp = sht3x.getTemperatureC();
         RH = sht3x.getHumidityRH();

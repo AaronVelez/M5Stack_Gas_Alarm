@@ -62,9 +62,15 @@ ThingerESP32 thing(iot_user, iot_device, iot_credential);
 /// in file SdFat\src\SdFatConfig.h at Line 100 set to cero for NON dedicated SPI:
 /// #define ENABLE_DEDICATED_SPI 0
 /// </summary>
+/*
 SdExFat sd;
 ExFile LogFile;
 ExFile root;
+*/
+SdFat32 sd;
+File32 LogFile;
+File32 root;
+
 char line[250];
 String str = "";
 int position = 0;
@@ -117,7 +123,7 @@ String StaType = F("Gas-Environmental Alarm");
 String StaName = F("Gas Alarm Photosynthesis Lab");
 String Firmware = F("v1.0.0");
 //const float VRef = 3.3;
-float CO2cal = 3.125;   // Calibrated coeficient to transform voltage to ppm.
+float CO2cal = 1.25;   // Calibrated coeficient to transform voltage to ppm.
 bool debug = false;
 
 
@@ -154,6 +160,7 @@ int yrIoT = -1;
 
 ////// State machine Shift Registers
 int LastSec = -1;           // Last second that gas sensor values where measured
+int LastLcd = -1;           // Last time the screen was updated
 int LastSum = -1;			// Last minute that variables were added to the sum for later averaging
 int SumNum = 0;				// Number of times a variable value has beed added to the sum for later averaging
 int LastLog = -1;			// Last minute that variables were loged to the SD card
@@ -205,9 +212,9 @@ void setup() {
     WiFi.begin(ssid, password);
     WiFi.setAutoReconnect(true);
     M5.Lcd.print(F("Connecting to internet..."));
-    // Test for a minute if there is WiFi connection;
+    // Test for half a minute if there is WiFi connection;
     // if not, continue to loop in order to monitor gas levels
-    for (int i = 0; i <= 60; i++) {
+    for (int i = 0; i <= 30; i++) {
         if (WiFi.status() != WL_CONNECTED) {
             M5.Lcd.print(".");
             delay(1000);
@@ -216,6 +223,7 @@ void setup() {
             M5.Lcd.println(F("Connected to internet!"));
             break;
         }
+        if (i == 30) { M5.Lcd.println(F("No internet connection")); }
     }
     M5.Lcd.println(F("Setting Speaker..."));
     //M5.Speaker.setBeep(900, 100);
@@ -268,17 +276,18 @@ void setup() {
     M5.Lcd.println(F("Starting NTP client engine..."));
     timeClient.begin();
     M5.Lcd.println(F("Trying to update NTP time..."));
-    // Test for a minute if NTP time can be updated;
+    // Test for half a minute if NTP time can be updated;
     // if not, continue to loop in order to monitor gas levels
-    for (int i = 0; i <= 60; i++) {
+    for (int i = 0; i <= 30; i++) {
         if (!timeClient.forceUpdate()) {
             M5.Lcd.print(".");
             delay(1000);
         }
         else {
-            M5.Lcd.println(F("NTP time updated"));
+            M5.Lcd.println(F("NTP time updated!"));
             break;
         }
+        if (i == 30) { M5.Lcd.println(F("No NTP update")); }
     }
     unix_t = timeClient.getEpochTime();
     unix_t = mxCT.toLocal(unix_t); // Conver to local time
@@ -312,8 +321,14 @@ void setup() {
     }
 
 
-    M5.Lcd.print(F("Setup done!"));
-    delay(500);
+    // Setup finish message
+    M5.Lcd.println(F("Setup done!"));
+    M5.Lcd.println(F("\nStarting in "));
+    for (int i = 0; i <= 5; i++) {
+        M5.Lcd.println(5 - i);
+        if (i != 5) { delay(1000); }
+        else { delay(250); }
+    }
     M5.Lcd.clear(BLACK);
 }
 
@@ -383,62 +398,7 @@ void loop() {
     }
 
 
-    ////// State 5. Test gas limits
-    // Always test
-    if (true) {
-        if (O2Value < 19) { O2low = true; }
-        else { O2low = false; }
-        // High oxygene
-        if (O2Value > 23) { O2high = true; }
-        else { O2high = false; }
-        // High carbon dioxide
-        if (CO2ppm > 2000) { CO2high = true; }
-        else { CO2high = false; }
-    }
-
-
-    ////// State 6 trigger alarm
-    if (O2low || O2high || CO2high) {
-        for (int i = 0; i <= 20; i++) {
-            BeepStr = millis();
-            int j = 0;
-            while (millis() - BeepStr < BeepLgth) {
-                if (j == 0) {
-                    M5.Speaker.tone(Note, BeepLgth);
-                    M5.update();
-                }
-                j += 1;
-                thing.handle();     // Keep IoT engine running
-            }
-            while (millis() - BeepStr < (BeepLgth * 2)) {
-                M5.Speaker.mute();
-                thing.handle();     // Keep IoT engine running
-            }
-        }
-        // Alert email (via iot thinger endpoint)
-        if (O2low || O2high) {
-            if ((unix_t - t_email) > (email_frq * 60)) {  // prevent sending too many email with the same message
-                pson EmailData;
-                EmailData["oxygen"] = O2Value;
-                EmailData["year"] = yr;
-                EmailData["month"] = mo;
-                EmailData["day"] = dy;
-                EmailData["hour"] = h;
-                EmailData["minute"] = m;
-                EmailData["second"] = s;
-                if (O2low) {
-                    thing.call_endpoint("Low_oxygen_PhotoLab_email", EmailData);
-                }
-                if (O2high) {
-                    thing.call_endpoint("High_oxygen_PhotoLab_email", EmailData);
-                }
-                t_email = unix_t;
-            }
-        }
-    }
-
-
-    ////// State 7. Test if it is time to read Temp and RH values
+    ////// State 5. Test if it is time to read Temp and RH values
     ////// AND record sensor values for 5-minute averages (each minute)
     if (m != LastSum) {
         Temp = sht3x.getTemperatureC();
@@ -459,7 +419,7 @@ void loop() {
     }
 
 
-    ////// State 8. Test if it is time to compute  averages and record in SD card (each 5 minutes)
+    ////// State 6. Test if it is time to compute  averages and record in SD card (each 5 minutes)
     if (((m % 5) == 0) && (m != LastLog)) {
         // Calculate averages
         O2ValueAvg = O2ValueSum / SumNum;
@@ -519,13 +479,12 @@ void loop() {
     }
 
 
-    ////// State 9. Test if there is data available to be sent to IoT cloud
-    if (PayloadRdy == false) {
+    ////// State 7. Test if there is data available to be sent to IoT cloud
+    if (!PayloadRdy &&
+        unix_t - t_DataBucket > DataBucket_frq - 15) {
         root.open("/");	// Open root directory
         root.rewind();	// Rewind root directory
-
-        Serial.println(LogFile.openNext(&root, O_RDWR));    // NEEDED IN M5; I DO NOT KNOW WHY....
-
+        LogFile.openNext(&root, O_RDWR);
         while (LogFile.openNext(&root, O_RDWR)) {
             LogFile.rewind();
             LogFile.fgets(line, sizeof(line));     // Get first line
@@ -562,101 +521,102 @@ void loop() {
     }
 
 
-    ////// State 10. Test if there is Internet and a Payload to sent SD data to IoT
-    if (debug) {
-        M5.Lcd.print(F("Thing connected, payload ready and enought time has enlapsed: "));
-        M5.Lcd.println(thing.is_connected() &&
-        PayloadRdy &&
-        unix_t - t_DataBucket > DataBucket_frq);
-    }
-    if (thing.is_connected() &&
-        PayloadRdy &&
-        unix_t - t_DataBucket > DataBucket_frq) {
-        t_DataBucket = unix_t; // Record Data Bucket update TRY; even if it is not succesfful
-        // extract data from payload string (str)
-        for (int i = 0; i < HeaderN; i++) {
-            String buffer = str.substring(0, str.indexOf('\t'));
-            if (i != 6) { 	// Do not read seconds info
-                if (i == 0) {   // UNIX Time
-                    SD_unix_t = buffer.toInt();
-                }
-                else if (i == 1) {
-                    yrIoT = buffer.toInt();
-                }
-                else if (i == 2) {
-                    moIoT = buffer.toInt();
-                }
-                else if (i == 3) {
-                    dyIoT = buffer.toInt();
-                }
-                else if (i == 4) {
-                    hIoT = buffer.toInt();
-                }
-                else if (i == 5) {
-                    mIoT = buffer.toInt();
-                }
-                else if (i == 7) {  // O2
-                    O2ValueAvg = buffer.toFloat();
-                }
-                else if (i == 8) {  // CO2
-                    CO2ppmAvg = buffer.toFloat();
-                }
-                else if (i == 9) {  // Temp
-                    TempAvg = buffer.toFloat();
-                }
-                else if (i == 10) { // RH
-                    RHAvg = buffer.toFloat();
-                }
-
-
-            }
-            str = str.substring(str.indexOf('\t') + 1);
+    ////// State 8. Test if there is Internet and a Payload to sent SD data to IoT
+    if (true) {
+        if (debug) {
+            M5.Lcd.print(F("Thing connected, payload ready and enought time has enlapsed: "));
+            M5.Lcd.println(thing.is_connected() &&
+                PayloadRdy &&
+                unix_t - t_DataBucket > DataBucket_frq);
         }
-        // send data to IoT. If succsessful, rewrite line in log File
-        if (thing.write_bucket(iot_data_bucket, "Avg_Data", true) == 1) {
-            if (debug) { M5.Lcd.println(F("Loteria, data on Cloud!!!")); }
-            // Update line sent to IoT status
-            if (debug) {
-                M5.Lcd.print(F("IoT year: "));
-                M5.Lcd.println(yrIoT);
-                M5.Lcd.print(F("File name: "));
-                M5.Lcd.println(FileName[yrIoT - 2020]);
+        if (thing.is_connected() &&
+            PayloadRdy &&
+            unix_t - t_DataBucket > DataBucket_frq) {
+            t_DataBucket = unix_t; // Record Data Bucket update TRY; even if it is not succesfful
+            // extract data from payload string (str)
+            for (int i = 0; i < HeaderN; i++) {
+                String buffer = str.substring(0, str.indexOf('\t'));
+                if (i != 6) { 	// Do not read seconds info
+                    if (i == 0) {   // UNIX Time
+                        SD_unix_t = buffer.toInt();
+                    }
+                    else if (i == 1) {
+                        yrIoT = buffer.toInt();
+                    }
+                    else if (i == 2) {
+                        moIoT = buffer.toInt();
+                    }
+                    else if (i == 3) {
+                        dyIoT = buffer.toInt();
+                    }
+                    else if (i == 4) {
+                        hIoT = buffer.toInt();
+                    }
+                    else if (i == 5) {
+                        mIoT = buffer.toInt();
+                    }
+                    else if (i == 7) {  // O2
+                        O2ValueAvg = buffer.toFloat();
+                    }
+                    else if (i == 8) {  // CO2
+                        CO2ppmAvg = buffer.toFloat();
+                    }
+                    else if (i == 9) {  // Temp
+                        TempAvg = buffer.toFloat();
+                    }
+                    else if (i == 10) { // RH
+                        RHAvg = buffer.toFloat();
+                    }
+
+
+                }
+                str = str.substring(str.indexOf('\t') + 1);
             }
-            LogFile.open(FileName[yrIoT - 2020], O_RDWR); // Open file containing the data just sent to IoT
-            str = String(line);                     // Recover complete payload from original line
-            str.setCharAt(str.length() - 2, '1');   // Replace 0 with 1, last characters are always "\r\n"
-            LogFile.seekSet(position);              // Set position to start of line to be rewritten
-            LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
-            // Test if this line is last line of year Log File, if so, write "Done" at the end of first line
-            if (moIoT == 12  &&  dyIoT == 31  &&  hIoT == 23  &&  mIoT == 55) {
-                LogFile.rewind();
-                LogFile.fgets(line, sizeof(line));     // Get first line
-                str = String(line);
-                str = str.substring(0, str.indexOf("\t"));
-                str = (String)str + "\t" + "Done";
-                LogFile.rewind();
+            // send data to IoT. If succsessful, rewrite line in log File
+            if (thing.write_bucket(iot_data_bucket, "Avg_Data", true) == 1) {
+                if (debug) { M5.Lcd.println(F("Loteria, data on Cloud!!!")); }
+                // Update line sent to IoT status
+                if (debug) {
+                    M5.Lcd.print(F("IoT year: "));
+                    M5.Lcd.println(yrIoT);
+                    M5.Lcd.print(F("File name: "));
+                    M5.Lcd.println(FileName[yrIoT - 2020]);
+                }
+                LogFile.open(FileName[yrIoT - 2020], O_RDWR); // Open file containing the data just sent to IoT
+                str = String(line);                     // Recover complete payload from original line
+                str.setCharAt(str.length() - 2, '1');   // Replace 0 with 1, last characters are always "\r\n"
+                LogFile.seekSet(position);              // Set position to start of line to be rewritten
                 LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
-                LogFile.close();
+                // Test if this line is last line of year Log File, if so, write "Done" at the end of first line
+                if (moIoT == 12 && dyIoT == 31 && hIoT == 23 && mIoT == 55) {
+                    LogFile.rewind();
+                    LogFile.fgets(line, sizeof(line));     // Get first line
+                    str = String(line);
+                    str = str.substring(0, str.indexOf("\t"));
+                    str = (String)str + "\t" + "Done";
+                    LogFile.rewind();
+                    LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
+                    LogFile.close();
+                }
+                else {
+                    // Update start position of last line sent to IoT
+                    LogFile.rewind();
+                    LogFile.fgets(line, sizeof(line));     // Get first line
+                    str = String(line);
+                    str = str.substring(0, str.indexOf("\t"));
+                    str = (String)str + "\t" + position;
+                    LogFile.rewind();
+                    LogFile.println(str);
+                    LogFile.close();
+                }
+                PayloadRdy = false;
             }
-            else {
-                // Update start position of last line sent to IoT
-                LogFile.rewind();
-                LogFile.fgets(line, sizeof(line));     // Get first line
-                str = String(line);
-                str = str.substring(0, str.indexOf("\t"));
-                str = (String)str + "\t" + position;
-                LogFile.rewind();
-                LogFile.println(str.substring(0, str.length() - 1));    // Remove last character ('\n') to prevent an empty line below rewritten line
-                LogFile.close();
-            }
-            PayloadRdy = false;
         }
-        
     }
 
 
-    ////// State 11. Update Screen
-    if (!debug) {
+    ////// State 9. Update Screen
+    if (!debug && (s != LastLcd)) {
         // Top left, Temp
         M5.Lcd.fillRect(0, 0, 160, 100, M5.Lcd.color565(255, 0, 0));
         M5.Lcd.setTextColor(M5.Lcd.color565(255, 255, 255));
@@ -712,7 +672,65 @@ void loop() {
             M5.Lcd.setTextDatum(MR_DATUM);
             M5.Lcd.drawString(F("IoT"), 320 - 10, 220);
         }
+
+        LastLcd = s;
     }
+
+
+    ////// State 10. Test gas limits
+    // Always test
+    if (true) {
+        if (O2Value < 19) { O2low = true; }
+        else { O2low = false; }
+        // High oxygene
+        if (O2Value > 23) { O2high = true; }
+        else { O2high = false; }
+        // High carbon dioxide
+        if (CO2ppm > 2000) { CO2high = true; }
+        else { CO2high = false; }
+    }
+
+
+    ////// State 11 trigger alarm
+    if (O2low || O2high || CO2high) {
+        for (int i = 0; i <= 20; i++) {
+            BeepStr = millis();
+            int j = 0;
+            while (millis() - BeepStr < BeepLgth) {
+                if (j == 0) {
+                    M5.Speaker.tone(Note, BeepLgth);
+                    M5.update();
+                }
+                j += 1;
+                thing.handle();     // Keep IoT engine running
+            }
+            while (millis() - BeepStr < (BeepLgth * 2)) {
+                M5.Speaker.mute();
+                thing.handle();     // Keep IoT engine running
+            }
+        }
+        // Alert email (via iot thinger endpoint)
+        if (O2low || O2high) {
+            if ((unix_t - t_email) > (email_frq * 60)) {  // prevent sending too many email with the same message
+                pson EmailData;
+                EmailData["oxygen"] = O2Value;
+                EmailData["year"] = yr;
+                EmailData["month"] = mo;
+                EmailData["day"] = dy;
+                EmailData["hour"] = h;
+                EmailData["minute"] = m;
+                EmailData["second"] = s;
+                if (O2low) {
+                    thing.call_endpoint("Low_oxygen_PhotoLab_email", EmailData);
+                }
+                if (O2high) {
+                    thing.call_endpoint("High_oxygen_PhotoLab_email", EmailData);
+                }
+                t_email = unix_t;
+            }
+        }
+    }
+
 
 
     if (debug) {

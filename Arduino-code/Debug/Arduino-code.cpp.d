@@ -393,6 +393,7 @@ C:\Users\aivel\AppData\Local\Temp\VMBuilds\ARDUIN~1\ESP32_~1\Debug\Arduino-code.
  C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FsLib/FsFile.h \
  C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/FatLib/FatLib.h \
  C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\SdFat\src/ExFatLib/ExFatLib.h \
+ C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\RTClib/RTClib.h \
  C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\Time/TimeLib.h \
  C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\NTPCLI~1/NTPClient.h \
  C:\Users\aivel\DOCUME~1\Arduino\LIBRAR~1\Timezone\src/Timezone.h \

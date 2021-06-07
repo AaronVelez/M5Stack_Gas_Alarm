@@ -43,17 +43,25 @@ const char iot_data_bucket[] = IoT_DATA_BUCKET;
 #include <WiFi.h>
 #include <WiFiUdp.h>
 WiFiUDP ntpUDP;
+
+
+
+////// Iot Thinger
 #define THINGER_SERVER iot_server   // Delete this line if using a free thinger account 
 #define _DEBUG_   // Uncomment for debugging connection to Thinger
 #define _DISABLE_TLS_     // Uncoment if needed (port 25202 closed, for example)
 #include <ThingerESP32.h>
 ThingerESP32 thing(iot_user, iot_device, iot_credential);
-
-
+/// <summary>
+/// IMPORTANT
+/// in file \thinger.io\src\ThingerClient.h at Line 355, the function handle_connection() was modified
+/// to prevent the thinger handler to agresively try to reconnect to WiFi in case of a lost connection
+/// This allows the alarn to keep monitoring gas levels even if there is no network connection
+/// </summary>
 
 
 ////// SD fat library used in order to use exFAT file system
-////// Adapted to Mg stack acording to https://github.com/ArminPP/sdFAT-M5Stack
+////// Adapted to M5 stack acording to https://github.com/ArminPP/sdFAT-M5Stack
 #include <SdFat.h>
 #define SPI_SPEED SD_SCK_MHZ(25)
 #define SD_CONFIG SdSpiConfig(TFCARD_CS_PIN, SHARED_SPI, SPI_SPEED) // TFCARD_CS_PIN is defined in M5Stack Config.h (Pin 4)
@@ -62,24 +70,28 @@ ThingerESP32 thing(iot_user, iot_device, iot_credential);
 /// in file SdFat\src\SdFatConfig.h at Line 100 set to cero for NON dedicated SPI:
 /// #define ENABLE_DEDICATED_SPI 0
 /// </summary>
-/*
+
 SdExFat sd;
 ExFile LogFile;
 ExFile root;
-*/
+
+/*
 SdFat32 sd;
 File32 LogFile;
 File32 root;
+*/
 
 char line[250];
 String str = "";
-int position = 0;
+unsigned int position = 0;
 
 
 ////// Time libraries
+#include <RTClib.h>
+RTC_DS3231 rtc;
 #include <TimeLib.h>
 #include <NTPClient.h>
-NTPClient timeClient(ntpUDP, "north-america.pool.ntp.org", 0, 60000); // For details, see https://github.com/arduino-libraries/NTPClient
+NTPClient timeClient(ntpUDP, "north-america.pool.ntp.org", 0, 300000); // For details, see https://github.com/arduino-libraries/NTPClient
 // Time zone library
 #include <Timezone.h>
 //  Central Time Zone (Mexico City)
@@ -104,6 +116,7 @@ DFRobot_OxygenSensor Oxygen; // Decalre the class for the Oxygen sensor
 ////// Library for SHT31 Temperature and Humidity Sensor
 #include <DFRobot_SHT3x.h>
 DFRobot_SHT3x sht3x(&Wire,/*address=*/0x45,/*RST=*/4);
+DFRobot_SHT3x::sRHAndTemp_t sht3x_data;
 
 
 ////// CO2 Sensor Input
@@ -121,9 +134,10 @@ float sum = 0; // shift register to hold ADC data
 const int StaNum = 4;
 String StaType = F("Gas-Environmental Alarm");
 String StaName = F("Gas Alarm Photosynthesis Lab");
-String Firmware = F("v1.0.0");
+String Firmware = F("v1.1.0");
 //const float VRef = 3.3;
 float CO2cal = 1.25;   // Calibrated coeficient to transform voltage to ppm.
+float SD_CO2Cal = 0;
 bool debug = false;
 
 
@@ -131,19 +145,28 @@ bool debug = false;
 const char* FileName[] = { "2020.txt", "2021.txt", "2022.txt", "2023.txt", "2024.txt", "2025.txt", "2026.txt", "2027.txt", "2028.txt", "2029.txt",
             "2030.txt", "2031.txt", "2032.txt", "2033.txt", "2034.txt", "2035.txt", "2036.txt", "2037.txt", "2038.txt", "2039.txt",
             "2040.txt", "2041.txt", "2042.txt", "2043.txt", "2044.txt", "2045.txt", "2046.txt", "2047.txt", "2048.txt", "2049.txt",
-            "2050.txt" };
-const String Headers = F("UNIX_t\tyear\tmonth\tday\thour\tminute\tsecond\t\
+            "2050.txt", "2051.txt", "2052.txt", "2053.txt", "2054.txt", "2055.txt", "2056.txt", "2057.txt", "2058.txt", "2059.txt",
+            "2060.txt", "2061.txt", "2062.txt", "2063.txt", "2064.txt", "2065.txt", "2066.txt", "2067.txt", "2068.txt", "2069.txt",
+            "2070.txt", "2071.txt", "2072.txt", "2073.txt", "2074.txt", "2075.txt", "2076.txt", "2077.txt", "2078.txt", "2079.txt",
+            "2080.txt", "2081.txt", "2082.txt", "2083.txt", "2084.txt", "2085.txt", "2086.txt", "2087.txt", "2088.txt", "2089.txt",
+            "2090.txt", "2091.txt", "2092.txt", "2093.txt", "2094.txt", "2095.txt", "2096.txt", "2097.txt", "2098.txt", "2099.txt",
+            "2100.txt" };
+const String Headers = F("UTC_UNIX_t\tLocal_UNIX_t\tyear\tmonth\tday\thour\tminute\tsecond\t\
 O2%\tCO2ppm\t\
 AirTemp\tAirRH\t\
 CO2cal\t\
+SensorsOK\t\
 SentIoT");
-const int HeaderN = 12;	// Number of items in header (columns), Also used as a cero-indexed header index
+const int HeaderN = 14;	// Number of items in header (columns), Also used as a cero-indexed header index
 String LogString = "";
 
 
 ////// Time variables
-time_t unix_t;	    // RT UNIX time stamp
-time_t SD_unix_t;    // Recorded UNIX time stamp
+DateTime RTCnow;    // UTC Date-Time class from RTC
+time_t LastNTP;     // Last UTP time that the RTC was updated form NTP
+time_t UTC_t;       // UTC UNIX time stamp
+time_t local_t;     // Local time with DST adjust in UNIX time stamp format
+time_t SD_local_t;  // Recorded UNIX time stamp
 int s = -1;		    // Seconds
 int m = -1;		    // Minutes
 int h = -1;		    // Hours
@@ -164,7 +187,14 @@ int LastLcd = -1;           // Last time the screen was updated
 int LastSum = -1;			// Last minute that variables were added to the sum for later averaging
 int SumNum = 0;				// Number of times a variable value has beed added to the sum for later averaging
 int LastLog = -1;			// Last minute that variables were loged to the SD card
-bool PayloadRdy = false;	// Payload ready to send to LoRa
+bool PayloadRdy = false;	// Payload ready to send to IoT
+
+time_t t_WiFiCnxTry = 0;      // Last time a (re)connection to internet happened
+const int WiFiCnx_frq = 30;  // (re)connection to internet frequency in seconds
+
+byte SensorsOK = B00000000;     // Byte variable to store real time sensor status
+byte SensorsOKAvg = B00001111;  // Byte variable to store SD card average sensor status
+int SensorsOKIoT = 0;           // Variable to send sensor status in decimal format
 
 bool O2low = false;
 bool O2high = false;
@@ -210,27 +240,30 @@ void setup() {
     M5.Power.begin();
     M5.Lcd.println(F("M5 started"));
     WiFi.begin(ssid, password);
-    WiFi.setAutoReconnect(true);
+    WiFi.setAutoReconnect(false);
     M5.Lcd.print(F("Connecting to internet..."));
-    // Test for half a minute if there is WiFi connection;
+    // Test for 10 seconds if there is WiFi connection;
     // if not, continue to loop in order to monitor gas levels
-    for (int i = 0; i <= 30; i++) {
+    for (int i = 0; i <= 10; i++) {
         if (WiFi.status() != WL_CONNECTED) {
             M5.Lcd.print(".");
             delay(1000);
         }
         else {
-            M5.Lcd.println(F("Connected to internet!"));
+            M5.Lcd.println(F("\nConnected to internet!"));
             break;
         }
-        if (i == 30) { M5.Lcd.println(F("No internet connection")); }
+        if (i == 10) {
+            M5.Lcd.println(F("\nNo internet connection"));
+            WiFi.disconnect();  // if no internet, disconnect. This prevents the board to be busy only trying to connect.
+        }
     }
     M5.Lcd.println(F("Setting Speaker..."));
     //M5.Speaker.setBeep(900, 100);
     //M5.Speaker.setVolume(255);
     //M5.Speaker.update();
 
-
+    
     ////// Configure IoT
     M5.Lcd.println(F("Configuring IoT..."));
     thing.add_wifi(ssid, password);
@@ -252,15 +285,18 @@ void setup() {
     thing["Alarm_O2low"] >> [](pson& out) { out = O2low; };
     thing["Alarm_O2high"] >> [](pson& out) { out = O2high; };
     thing["Alarm_CO2high"] >> [](pson& out) { out = CO2high; };
+    thing["RT_SensorOK"] >> [](pson& out) { out = SensorsOK; };
 
     thing["Avg_Data"] >> [](pson& out) {
-        out["Time_Stamp"] = SD_unix_t;
+        out["Time_Stamp"] = SD_local_t;
         out["Oxygene"] = O2ValueAvg;
         out["Carbon_Dioxide"] = CO2ppmAvg;
         out["Temperature"] = TempAvg;
         out["Relative_Humidity"] = RHAvg;
+        out["CO2_Calibration"] = SD_CO2Cal;
+        out["Sensors_OK"] = SensorsOKIoT;
     };
-
+    
 
     ////// Initialize SD card
     M5.Lcd.println(F("Setting SD card..."));
@@ -272,27 +308,26 @@ void setup() {
     str.reserve(HeaderN * 7);
 
 
-    //////// Start NTP client engine and update system time
+    ////// Start RTC
+    M5.Lcd.println(F("Starting RTC..."));
+    if (rtc.begin()) { M5.Lcd.println(F("RTC started!")); }
+    else { M5.Lcd.println(F("RTC Fail!")); }
+
+
+    //////// If internet, start NTP client engine
+    //////// and update RTC and system time
+    //////// If no internet, get time form RTC
     M5.Lcd.println(F("Starting NTP client engine..."));
     timeClient.begin();
-    M5.Lcd.println(F("Trying to update NTP time..."));
-    // Test for half a minute if NTP time can be updated;
-    // if not, continue to loop in order to monitor gas levels
-    for (int i = 0; i <= 30; i++) {
-        if (!timeClient.forceUpdate()) {
-            M5.Lcd.print(".");
-            delay(1000);
-        }
-        else {
-            M5.Lcd.println(F("NTP time updated!"));
-            break;
-        }
-        if (i == 30) { M5.Lcd.println(F("No NTP update")); }
+    M5.Lcd.print(F("Trying to update NTP time..."));
+    // Try to update NTP time.
+    // If not succesful , get RTc time and continue to loop in order to monitor gas levels
+    if (!GetNTPTime()) {
+        GetRTCTime();
+        M5.Lcd.println(F("\nTime updated from RTC"));
     }
-    unix_t = timeClient.getEpochTime();
-    unix_t = mxCT.toLocal(unix_t); // Conver to local time
-    setTime(unix_t);   // set system time to given unix timestamp
-    
+    else { M5.Lcd.println(F("\nTime updated from NTP")); }
+
 
     /////// Start oxygene sensor
     M5.Lcd.println(F("Starting Oxygen sensor..."));
@@ -346,49 +381,61 @@ void loop() {
         M5.Lcd.print(F("Loop start at: "));
         M5.Lcd.println(millis());
     }
+
+    
+    ////// State 0. Test internet connection; if not, try to connect.
+    if ( WiFi.status() != WL_CONNECTED ) { WiFi.disconnect(); }
+    if ( WiFi.status() != WL_CONNECTED && 
+        UTC_t - t_WiFiCnxTry > WiFiCnx_frq ) {
+        Serial.println(F("Loop reconect try"));
+        WiFi.begin(ssid, password);
+
+        t_WiFiCnxTry = UTC_t;
+    }
+    
+
     ////// State 1. Keep the Iot engine runing
     thing.handle();
 
 
-    ////// State 2. Get current time from system time
-    if (true) {
-        s = second();
-        m = minute();
-        h = hour();
-        dy = day();
-        mo = month();
-        yr = year();
-        if (debug) { M5.Lcd.println((String)"Time: " + h + ":" + m + ":" + s); }
-    }
+  
+
+    
+    ////// State 2. Get time from RTC time
+    GetRTCTime();
+    if (debug) { M5.Lcd.println((String)"Time: " + h + ":" + m + ":" + s); }
 
 
-    ////// State 3. Update system time from NTP server every minute
-    if (timeClient.update()) { // It does not force-update NTC time (see NTPClient declaration for actual udpate interval)
-        unix_t = timeClient.getEpochTime();
-        unix_t = mxCT.toLocal(unix_t); // Conver to local time
-        setTime(unix_t);   // set system time to given unix timestamp
-        if (debug) { M5.Lcd.println(F("NTP client update success!")); }
-    }
-    else {
-        if (debug) { M5.Lcd.println(F("NTP update not succesfull")); }
-    }
-
-
-
+    ////// State 3. Update RTC time from NTP server at midnight
+    if (h == 0 &&
+        m == 0 &&
+        s == 0 &&
+        UTC_t != LastNTP) { GetNTPTime(); }
+    
 
     ////// State 4. Test if it is time to read gas sensor values (each second)
     if (s != LastSec) {
+        // O2
         O2Value = Oxygen.ReadOxygenData(COLLECT_NUMBER); //DFRobot_OxygenSensor Oxygen code
+        if (isnan(O2Value) || O2Value == -1) {    // Check Temp values
+            O2Value = 21;
+            bitWrite(SensorsOK, 0, 0);
+        }
+        else { bitWrite(SensorsOK, 0, 1); }
+
+        // CO2
         sum = 0;
         for (int i = 0; i < n; i++) {
             sum += analogReadMilliVolts(CO2In);
         }
         CO2mVolt = sum / n;
-        if (CO2mVolt < 400) { // Sensor in preheting if voltage is lower than 400 mV
-            CO2ppm = 0;   // Set value to cero to identify faulty datapoints
+        if ( CO2mVolt < 400 || isnan(CO2mVolt) || CO2mVolt == -1 ) { // Sensor in preheting if voltage is lower than 400 mV
+            CO2ppm = 400;
+            bitWrite(SensorsOK, 1, 0);
         }
         else {
             CO2ppm = (CO2mVolt - 400) * CO2cal;
+            bitWrite(SensorsOK, 1, 1);
         }
         if (debug) {
             M5.Lcd.println((String)"Oxygene: " + O2Value + " %vol");
@@ -399,14 +446,40 @@ void loop() {
 
 
     ////// State 5. Test if it is time to read Temp and RH values
-    ////// AND record sensor values for 5-minute averages (each minute)
-    if (m != LastSum) {
-        Temp = sht3x.getTemperatureC();
-        RH = sht3x.getHumidityRH();
-        if (debug) {
-            M5.Lcd.println((String)"Temp: " + Temp + " °C");
-            M5.Lcd.println((String)"RH: " + RH + " %");
+    ////// AND record sensor values for 5-minute averages (each 20 seconds)
+    if ((s % 20 == 0) && (s != LastSum)) {
+        sht3x_data = sht3x.readTemperatureAndHumidity(sht3x.eRepeatability_High);
+        if (sht3x_data.ERR == 0) {
+            Temp = sht3x_data.TemperatureC;
+            RH = sht3x_data.Humidity;
+            bitWrite(SensorsOK, 2, 1);
+            bitWrite(SensorsOK, 3, 1);
         }
+        else {
+            Temp = 25;
+            RH = 25;
+            bitWrite(SensorsOK, 2, 0);
+            bitWrite(SensorsOK, 3, 0);
+        }
+
+        
+        // Record if sensor reads were OK
+        SensorsOKAvg = SensorsOKAvg & SensorsOK;
+        if ( !bitRead(SensorsOK, 0) || !bitRead(SensorsOK, 1) || !bitRead(SensorsOK, 2) ||
+            !bitRead(SensorsOK, 3) ) {
+            M5.Lcd.println(F("At least 1 sensor read failed"));
+            M5.Lcd.print(F("SensorOK byte: "));
+            M5.Lcd.println(SensorsOK, BIN);
+            M5.Lcd.print(F("O2: "));
+            M5.Lcd.println(O2Value);
+            M5.Lcd.print(F("CO2: "));
+            M5.Lcd.println(CO2ppm);
+            M5.Lcd.print(F("Temp: "));
+            M5.Lcd.println(Temp);
+            M5.Lcd.print(F("RH: "));
+            M5.Lcd.println(RH);
+        }
+
         // Add new values to sum
         O2ValueSum += O2Value;
         CO2ppmSum += CO2ppm;
@@ -420,7 +493,7 @@ void loop() {
 
 
     ////// State 6. Test if it is time to compute  averages and record in SD card (each 5 minutes)
-    if (((m % 5) == 0) && (m != LastLog)) {
+    if ( ((m % 5) == 0) && (m != LastLog) && (SumNum > 0) ) {
         // Calculate averages
         O2ValueAvg = O2ValueSum / SumNum;
         CO2ppmAvg = CO2ppmSum / SumNum;
@@ -458,10 +531,11 @@ void loop() {
 
 
         // Log to SD card
-        LogString = (String)unix_t + "\t" + yr + "\t" + mo + "\t" + dy + "\t" + h + "\t" + m + "\t" + s + "\t" +
+        LogString = (String)UTC_t + "\t" + local_t + "\t" + yr + "\t" + mo + "\t" + dy + "\t" + h + "\t" + m + "\t" + s + "\t" +
             String(O2ValueAvg, 4) + "\t" + String(CO2ppmAvg, 4) + "\t" +
             String(TempAvg, 4) + "\t" + String(RHAvg, 4) + "\t" +
             String(CO2cal, 4) + "\t" +
+            String(SensorsOKAvg, DEC) + "\t" +
             "0";
         LogFile.println(LogString); // Prints Log string to SD card file "LogFile.txt"
         LogFile.close(); // Close SD card file to save changes
@@ -476,12 +550,15 @@ void loop() {
         RHSum = 0;
 
         SumNum = 0;
+        SensorsOKAvg = B00001111;
     }
 
 
     ////// State 7. Test if there is data available to be sent to IoT cloud
+    // Only test if Payload is not ready AND
+    // the next DataBucket upload oportunity is in 15 sec 
     if (!PayloadRdy &&
-        unix_t - t_DataBucket > DataBucket_frq - 15) {
+        UTC_t - t_DataBucket > DataBucket_frq - 15) {
         root.open("/");	// Open root directory
         root.rewind();	// Rewind root directory
         LogFile.openNext(&root, O_RDWR);
@@ -520,55 +597,62 @@ void loop() {
         LogFile.close();
     }
 
-
+    
     ////// State 8. Test if there is Internet and a Payload to sent SD data to IoT
     if (true) {
         if (debug) {
             M5.Lcd.print(F("Thing connected, payload ready and enought time has enlapsed: "));
             M5.Lcd.println(thing.is_connected() &&
                 PayloadRdy &&
-                unix_t - t_DataBucket > DataBucket_frq);
+                UTC_t - t_DataBucket > DataBucket_frq);
         }
         if (thing.is_connected() &&
             PayloadRdy &&
-            unix_t - t_DataBucket > DataBucket_frq) {
-            t_DataBucket = unix_t; // Record Data Bucket update TRY; even if it is not succesfful
+            UTC_t - t_DataBucket > DataBucket_frq) {
+            t_DataBucket = UTC_t; // Record Data Bucket update TRY; even if it is not succesfful
             // extract data from payload string (str)
             for (int i = 0; i < HeaderN; i++) {
                 String buffer = str.substring(0, str.indexOf('\t'));
-                if (i != 6) { 	// Do not read seconds info
-                    if (i == 0) {   // UNIX Time
-                        SD_unix_t = buffer.toInt();
+                if (i != 7) { 	// Do not read seconds info
+                    if (i == 0) {   // UTC UNIX Time
+                        // Do not send to IoT
                     }
-                    else if (i == 1) {
-                        yrIoT = buffer.toInt();
+                    else if (i == 1) {  // Local UNIX time
+                        SD_local_t = buffer.toInt();
                     }
                     else if (i == 2) {
-                        moIoT = buffer.toInt();
+                        yrIoT = buffer.toInt();
                     }
                     else if (i == 3) {
-                        dyIoT = buffer.toInt();
+                        moIoT = buffer.toInt();
                     }
                     else if (i == 4) {
-                        hIoT = buffer.toInt();
+                        dyIoT = buffer.toInt();
                     }
                     else if (i == 5) {
+                        hIoT = buffer.toInt();
+                    }
+                    else if (i == 6) {
                         mIoT = buffer.toInt();
                     }
-                    else if (i == 7) {  // O2
+                    else if (i == 8) {  // O2
                         O2ValueAvg = buffer.toFloat();
                     }
-                    else if (i == 8) {  // CO2
+                    else if (i == 9) {  // CO2
                         CO2ppmAvg = buffer.toFloat();
                     }
-                    else if (i == 9) {  // Temp
+                    else if (i == 10) {  // Temp
                         TempAvg = buffer.toFloat();
                     }
-                    else if (i == 10) { // RH
+                    else if (i == 11) { // RH
                         RHAvg = buffer.toFloat();
                     }
-
-
+                    else if (i == 12) { // CO2 Calibration
+                        SD_CO2Cal = buffer.toFloat();
+                    }
+                    else if (i == 13) { // SensorsOK
+                        SensorsOKIoT = buffer.toInt();
+                    }
                 }
                 str = str.substring(str.indexOf('\t') + 1);
             }
@@ -613,7 +697,7 @@ void loop() {
             }
         }
     }
-
+    
 
     ////// State 9. Update Screen
     if (!debug && (s != LastLcd)) {
@@ -665,14 +749,18 @@ void loop() {
         M5.Lcd.setTextDatum(ML_DATUM);
         M5.Lcd.drawString((String) dy + "/" + mo + "/" + yr + "  " + h + ":" + m + ":" + s, 10, 220);
         
-
+        
         // IoT connection
         if (thing.is_connected()) {
             M5.Lcd.setFreeFont(&FreeSans12pt7b);
             M5.Lcd.setTextDatum(MR_DATUM);
             M5.Lcd.drawString(F("IoT"), 320 - 10, 220);
         }
-
+        else {
+            M5.Lcd.setFreeFont(&FreeSans12pt7b);
+            M5.Lcd.setTextDatum(MR_DATUM);
+            M5.Lcd.drawString(F("No WiFi"), 320 - 10, 220);
+        }
         LastLcd = s;
     }
 
@@ -686,7 +774,7 @@ void loop() {
         if (O2Value > 23) { O2high = true; }
         else { O2high = false; }
         // High carbon dioxide
-        if (CO2ppm > 2000) { CO2high = true; }
+        if (CO2ppm > 1000) { CO2high = true; }
         else { CO2high = false; }
     }
 
@@ -711,7 +799,7 @@ void loop() {
         }
         // Alert email (via iot thinger endpoint)
         if (O2low || O2high) {
-            if ((unix_t - t_email) > (email_frq * 60)) {  // prevent sending too many email with the same message
+            if ((UTC_t - t_email) > (email_frq * 60)) {  // prevent sending too many email with the same message
                 pson EmailData;
                 EmailData["oxygen"] = O2Value;
                 EmailData["year"] = yr;
@@ -726,7 +814,7 @@ void loop() {
                 if (O2high) {
                     thing.call_endpoint("High_oxygen_PhotoLab_email", EmailData);
                 }
-                t_email = unix_t;
+                t_email = UTC_t;
             }
         }
     }

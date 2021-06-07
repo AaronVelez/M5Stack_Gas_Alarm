@@ -100,5 +100,6 @@ typedef long pthread_cond_t;
 #define ESP_LOGI(tag, ...)
 
 #include "Arduino-code.ino"
+#include "User Functions.ino"
 #endif
 #endif

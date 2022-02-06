@@ -40,6 +40,7 @@ const char iot_data_bucket[] = IoT_DATA_BUCKET;
 
 ////// Comunication libraries
 #include <Wire.h>
+#include <SPI.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 WiFiUDP ntpUDP;
@@ -87,8 +88,8 @@ unsigned int position = 0;
 
 
 ////// Time libraries
-#include <RTClib.h>
-RTC_DS3231 rtc;
+#include <GravityRtc.h>
+GravityRtc rtc;
 #include <TimeLib.h>
 #include <NTPClient.h>
 NTPClient timeClient(ntpUDP, "north-america.pool.ntp.org", 0, 300000); // For details, see https://github.com/arduino-libraries/NTPClient
@@ -136,8 +137,8 @@ String StaType = F("Gas-Environmental Alarm");
 String StaName = F("Gas Alarm Photosynthesis Lab");
 String Firmware = F("v1.1.0");
 //const float VRef = 3.3;
-float CO2cal = 1.25;   // Calibrated coeficient to transform voltage to ppm.
-float SD_CO2Cal = 0;
+float CO2CalAdj = 1.00;   // Calibrated coeficient to transform voltage to ppm.
+float SD_CO2CalAdj = 0;
 bool debug = false;
 
 
@@ -154,7 +155,7 @@ const char* FileName[] = { "2020.txt", "2021.txt", "2022.txt", "2023.txt", "2024
 const String Headers = F("UTC_UNIX_t\tLocal_UNIX_t\tyear\tmonth\tday\thour\tminute\tsecond\t\
 O2%\tCO2ppm\t\
 AirTemp\tAirRH\t\
-CO2cal\t\
+CO2_Calibration_Adjust\t\
 SensorsOK\t\
 SentIoT");
 const int HeaderN = 14;	// Number of items in header (columns), Also used as a cero-indexed header index
@@ -162,7 +163,7 @@ String LogString = "";
 
 
 ////// Time variables
-DateTime RTCnow;    // UTC Date-Time class from RTC
+//DateTime RTCnow;    // UTC Date-Time class from RTC DS3231 (not used here)
 time_t LastNTP;     // Last UTP time that the RTC was updated form NTP
 time_t UTC_t;       // UTC UNIX time stamp
 time_t local_t;     // Local time with DST adjust in UNIX time stamp format
@@ -239,7 +240,9 @@ void setup() {
     M5.begin();
     M5.Power.begin();
     M5.Lcd.println(F("M5 started"));
-    WiFi.begin(ssid, password);
+
+    if (password == "") { WiFi.begin(ssid); }
+    else { WiFi.begin(ssid, password); }
     WiFi.setAutoReconnect(false);
     M5.Lcd.print(F("Connecting to internet..."));
     // Test for 10 seconds if there is WiFi connection;
@@ -266,11 +269,12 @@ void setup() {
     
     ////// Configure IoT
     M5.Lcd.println(F("Configuring IoT..."));
-    thing.add_wifi(ssid, password);
+    if (password == "") { thing.add_wifi(ssid); }
+    else { thing.add_wifi(ssid, password); }
     // Define input resources
     thing["CO2_calibration"] << [](pson& in) {  // Factor is multiplied by 100 in IoT dashboard
-        if (in.is_empty()) { in = CO2cal * 100; }
-        else { CO2cal = in; CO2cal = CO2cal / 100; }
+        if (in.is_empty()) { in = CO2CalAdj * 100; }
+        else { CO2CalAdj = in; CO2CalAdj = CO2CalAdj / 100; }
     };
     thing["Debug"] << [](pson& in) {
         if (in.is_empty()) { in = debug; }
@@ -293,7 +297,7 @@ void setup() {
         out["Carbon_Dioxide"] = CO2ppmAvg;
         out["Temperature"] = TempAvg;
         out["Relative_Humidity"] = RHAvg;
-        out["CO2_Calibration"] = SD_CO2Cal;
+        out["CO2_Calibration"] = SD_CO2CalAdj;
         out["Sensors_OK"] = SensorsOKIoT;
     };
     
@@ -310,9 +314,11 @@ void setup() {
 
     ////// Start RTC
     M5.Lcd.println(F("Starting RTC..."));
-    if (rtc.begin()) { M5.Lcd.println(F("RTC started!")); }
+    rtc.setup();
+    rtc.read();
+    if (rtc.year > 2020) { M5.Lcd.println(F("RTC started!")); }
     else { M5.Lcd.println(F("RTC Fail!")); }
-
+    
 
     //////// If internet, start NTP client engine
     //////// and update RTC and system time
@@ -434,7 +440,7 @@ void loop() {
             bitWrite(SensorsOK, 1, 0);
         }
         else {
-            CO2ppm = (CO2mVolt - 400) * CO2cal;
+            CO2ppm = (CO2mVolt - 400) * CO2CalAdj;
             bitWrite(SensorsOK, 1, 1);
         }
         if (debug) {
@@ -534,7 +540,7 @@ void loop() {
         LogString = (String)UTC_t + "\t" + local_t + "\t" + yr + "\t" + mo + "\t" + dy + "\t" + h + "\t" + m + "\t" + s + "\t" +
             String(O2ValueAvg, 4) + "\t" + String(CO2ppmAvg, 4) + "\t" +
             String(TempAvg, 4) + "\t" + String(RHAvg, 4) + "\t" +
-            String(CO2cal, 4) + "\t" +
+            String(CO2CalAdj, 4) + "\t" +
             String(SensorsOKAvg, DEC) + "\t" +
             "0";
         LogFile.println(LogString); // Prints Log string to SD card file "LogFile.txt"
@@ -648,7 +654,7 @@ void loop() {
                         RHAvg = buffer.toFloat();
                     }
                     else if (i == 12) { // CO2 Calibration
-                        SD_CO2Cal = buffer.toFloat();
+                        SD_CO2CalAdj = buffer.toFloat();
                     }
                     else if (i == 13) { // SensorsOK
                         SensorsOKIoT = buffer.toInt();

@@ -20,6 +20,7 @@
       <Filter>Misc Files</Filter>
     </None>
     <None Include="User Functions.ino" />
+    <None Include="Setpoint Functions.ino" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="__vm\.Arduino-code.vsarduino.h">

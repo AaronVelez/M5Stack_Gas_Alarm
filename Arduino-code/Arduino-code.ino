@@ -266,20 +266,44 @@ void setup() {
     //M5.Speaker.setVolume(255);
     //M5.Speaker.update();
 
+
+        ////// Initialize SD card
+    M5.Lcd.println(F("Setting SD card..."));
+    sd.begin(SD_CONFIG);
+    // Reserve RAM memory for large and dynamic String object
+    // used in SD file write/read
+    // (prevents heap RAM framgentation)
+    LogString.reserve(HeaderN * 7);
+    str.reserve(HeaderN * 7);
+
+
+    ////// Load variables from SD card
+    debug = (bool)Get_Setpoint("Debug.txt");
+    CO2CalAdj = Get_Setpoint("CO2_Cal_Adj.txt");
+
     
     ////// Configure IoT
     M5.Lcd.println(F("Configuring IoT..."));
     if (password == "") { thing.add_wifi(ssid); }
     else { thing.add_wifi(ssid, password); }
     // Define input resources
-    thing["CO2_calibration"] << [](pson& in) {  // Factor is multiplied by 100 in IoT dashboard
-        if (in.is_empty()) { in = CO2CalAdj * 100; }
-        else { CO2CalAdj = in; CO2CalAdj = CO2CalAdj / 100; }
-    };
+    // Debug
     thing["Debug"] << [](pson& in) {
-        if (in.is_empty()) { in = debug; }
-        else { debug = in; }
+        if (in.is_empty()) { in = (bool)Get_Setpoint("Debug.txt"); }
+        else {
+            Set_Setpoint("Debug.txt", (float)in);
+            debug = in;
+        }
     };
+    // CO2 calibration adjust
+    thing["CO2_calibration_adjust"] << [](pson& in) {
+        if (in.is_empty()) { in = Get_Setpoint("CO2_Cal_Adj.txt"); }
+        else {
+            Set_Setpoint("CO2_Cal_Adj.txt", (float)in);
+            CO2CalAdj = in;
+        }
+    };
+
 
     // Define output resources
     thing["RT_Oxygene"] >> [](pson& out) { out = O2Value; };
@@ -300,16 +324,6 @@ void setup() {
         out["CO2_Calibration"] = SD_CO2CalAdj;
         out["Sensors_OK"] = SensorsOKIoT;
     };
-    
-
-    ////// Initialize SD card
-    M5.Lcd.println(F("Setting SD card..."));
-    sd.begin(SD_CONFIG);
-    // Reserve RAM memory for large and dynamic String object
-    // used in SD file write/read
-    // (prevents heap RAM framgentation)
-    LogString.reserve(HeaderN * 7);
-    str.reserve(HeaderN * 7);
 
 
     ////// Start RTC
@@ -565,6 +579,61 @@ void loop() {
     // the next DataBucket upload oportunity is in 15 sec 
     if (!PayloadRdy &&
         UTC_t - t_DataBucket > DataBucket_frq - 15) {
+        if (debug) { Serial.println(F("Time to look in LogFiles for a Payload")); }
+        for (int i = yr - 1; i <= yr; i++) {
+            if (debug) {
+                Serial.println(F("For loop start"));
+                Serial.print(F("Looking for year LogFile: "));
+                Serial.println(i);
+            }
+            if (PayloadRdy) { break; }
+            if (LogFile.open(FileName[i - 2020])) {
+                if (debug) {
+                    Serial.print(F("Opened file: "));
+                    LogFile.printName(&Serial);
+                    Serial.println();
+                }
+                LogFile.rewind();
+                LogFile.fgets(line, sizeof(line));     // Get first line
+                str = String(line);
+                if (debug) {
+                    LogFile.printName(&Serial);
+                    Serial.println();
+                    Serial.print(F("File first line: "));
+                    Serial.println(str.substring(0, str.indexOf("\r")));
+                }
+                str = str.substring(str.indexOf("\t"), str.indexOf("\r"));
+                if (str == "Done") {	// Skips file if year data is all sent to IoT
+                    LogFile.close();
+                }
+                else {
+                    position = str.toInt();	// Sets file position to start of last line sent to IoT
+                    LogFile.seekSet(position);	// Set position to last line sent to LoRa
+                    // Read each line until a line not sent to IoT is found
+                    while (LogFile.available()) {
+                        position = LogFile.curPosition();  // START position of current line
+                        int len = LogFile.fgets(line, sizeof(line));
+                        if (line[len - 2] == '0') {
+                            str = String(line); // str is the payload, next state test if there is internet connection to send payload to IoT
+                            if (debug) {
+                                Serial.println("Loteria, data to send to IoT found!");
+                                Serial.print(F("Data: "));
+                                Serial.println(str.substring(0, str.indexOf("\r")));
+                            }
+                            PayloadRdy = true;
+                            LogFile.close();
+                            break;
+                        }
+                    }
+                    LogFile.close();
+                }
+            }
+            LogFile.close();	// 
+        }
+    }
+    /*
+    if (!PayloadRdy &&
+        UTC_t - t_DataBucket > DataBucket_frq - 15) {
         root.open("/");	// Open root directory
         root.rewind();	// Rewind root directory
         LogFile.openNext(&root, O_RDWR);
@@ -602,7 +671,7 @@ void loop() {
         root.close();
         LogFile.close();
     }
-
+    */
     
     ////// State 8. Test if there is Internet and a Payload to sent SD data to IoT
     if (true) {

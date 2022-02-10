@@ -29,7 +29,14 @@
 
 ////// Credentials_Gas_Alarm_Photo_Lab.h is a user-created library containing paswords, IDs and credentials
 #include "Credentials_Gas_Alarm_Photo_Lab.h"
+#ifdef WiFi_SSID_is_HEX
+const bool ssidIsHex = true;
+const char ssidHEX[] = WIFI_SSID_HEX;
+char ssid[64];
+#else
+const bool ssidIsHex = false;
 const char ssid[] = WIFI_SSID;
+#endif
 const char password[] = WIFI_PASSWD;
 const char iot_server[] = IoT_SERVER;
 const char iot_user[] = IoT_USER;
@@ -241,8 +248,17 @@ void setup() {
     M5.Power.begin();
     M5.Lcd.println(F("M5 started"));
 
+    if (ssidIsHex) {
+        String ssidStr = HexString2ASCIIString(ssidHEX);
+        ssidStr.toCharArray(ssid, sizeof(ssid) + 1);
+    }
+
+    M5.Lcd.print(F("SSID name: "));
+    M5.Lcd.println(ssid);
+
     if (password == "") { WiFi.begin(ssid); }
     else { WiFi.begin(ssid, password); }
+
     WiFi.setAutoReconnect(false);
     M5.Lcd.print(F("Connecting to internet..."));
     // Test for 10 seconds if there is WiFi connection;

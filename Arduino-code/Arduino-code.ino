@@ -35,6 +35,7 @@ const char ssidHEX[] = WIFI_SSID_HEX;
 char ssid[64];
 #else
 const bool ssidIsHex = false;
+const char ssidHEX[] = "";
 const char ssid[] = WIFI_SSID;
 #endif
 const char password[] = WIFI_PASSWD;
@@ -139,10 +140,16 @@ float sum = 0; // shift register to hold ADC data
 //////////////////////////////////////////
 
 ////// Station IDs & Constants
-const int StaNum = 4;
-String StaType = F("Gas-Environmental Alarm");
-String StaName = F("Gas Alarm Photosynthesis Lab");
-String Firmware = F("v1.1.0");
+const int Station_Number = 4;
+String Processor = F("ESP32");
+String IoT_Hardware = F("ESP32 WiFi");
+String IoT_Software = F("Thinger ESP32");
+String RTC_Hardware = F("SD2405");
+String IoT_Asset_Type = F("Alarm");
+String IoT_Group = F("Photosynthesis_Lab");
+String IoT_Station_Name = F("Gas Alarm Photosynthesis Lab");
+String Firmware = F("v1.0.0");
+
 //const float VRef = 3.3;
 float CO2CalAdj = 1.00;   // Calibrated coeficient to transform voltage to ppm.
 float SD_CO2CalAdj = 0;
@@ -546,10 +553,15 @@ void loop() {
             // Tabs added to prevent line ending with 0. Line ending with 0 indicates that line needs to be sent to IoT.
             LogFile.println(F("\t\t\t"));
             LogFile.println(F("Metadata:"));
-            LogFile.println((String)"Station Number\t" + StaNum + "\t\t\t");
-            LogFile.println((String)"Station Name\t" + StaName + "\t\t\t");
-            LogFile.println((String)"Station Type\t" + StaType + "\t\t\t");
-            LogFile.println((String)"Firmware\t" + Firmware + "\t\t\t");
+            LogFile.println((String)"Station Number\t" + Station_Number + "\t\t\t");
+            LogFile.println((String)"Station Name\t" + IoT_Station_Name + "\t\t\t");
+            LogFile.println((String)"Station Asset Type\t" + IoT_Asset_Type + "\t\t\t");
+            LogFile.println((String)"Station Group\t" + IoT_Group + "\t\t\t");
+            LogFile.println((String)"Processor\t" + Processor + "\t\t\t");
+            LogFile.println((String)"IoT Hardware\t" + IoT_Hardware + "\t\t\t");
+            LogFile.println((String)"IoT Software\t" + IoT_Software + "\t\t\t");
+            LogFile.println((String)"RTC Hardware\t" + RTC_Hardware + "\t\t\t");
+            LogFile.println((String)"Firmware\t" + Firmware + "\t\t\t");            
             LogFile.println(F("\t\t\t"));
             LogFile.println(F("\t\t\t"));
             LogFile.println(F("\t\t\t"));
